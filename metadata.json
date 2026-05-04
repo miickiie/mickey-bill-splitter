@@ -1,0 +1,6 @@
+{
+  "name": "Bill Splitter TH",
+  "description": "Minimal bill calculator with individual items, shared discounts, SVC 10%, and VAT 7%.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

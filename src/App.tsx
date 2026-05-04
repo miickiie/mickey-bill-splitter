@@ -14,6 +14,7 @@ import {
   Copy,
   Minus
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Person, Item, BillSettings, CalculationBreakdown, Plates } from './types';
 
 const PLATE_PRICES: Record<keyof Plates, number> = {
@@ -33,8 +34,10 @@ const INITIAL_PLATES: Plates = {
 };
 
 export default function App() {
+  const { t, i18n } = useTranslation();
+  
   const [people, setPeople] = useState<Person[]>([
-    { id: '1', name: 'คุณ A', items: [], individualDiscount: 0, plates: { ...INITIAL_PLATES } }
+    { id: '1', name: t('personDefaultName'), items: [], individualDiscount: 0, plates: { ...INITIAL_PLATES } }
   ]);
   const [settings, setSettings] = useState<BillSettings>({
     sharedDiscount: 0,
@@ -66,7 +69,7 @@ export default function App() {
   const addPerson = () => {
     const newPerson: Person = {
       id: crypto.randomUUID(),
-      name: `สมาชิกใหม่ ${people.length + 1}`,
+      name: t('newMemberDefaultName', { count: people.length + 1 }),
       items: [],
       individualDiscount: 0,
       plates: { ...INITIAL_PLATES }
@@ -197,12 +200,12 @@ export default function App() {
   }, [people, settings]);
 
   const copySummary = () => {
-    let text = "🧾 สรุปยอด\n\n";
+    let text = t('copyTemplateSubtotal');
     people.forEach(p => {
       const share = breakdown.peopleTotals.find(pt => pt.personId === p.id)?.finalShare || 0;
       text += `👤 ${p.name}: ฿${share.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
     });
-    text += `\n💰 รวม: ฿${breakdown.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
+    text += t('copyTemplateTotal', { total: breakdown.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) });
 
     navigator.clipboard.writeText(text);
     setShowCopied(true);
@@ -210,7 +213,7 @@ export default function App() {
   };
 
   const resetAll = () => {
-    setPeople([{ id: '1', name: 'คุณ A', items: [], individualDiscount: 0, plates: { ...INITIAL_PLATES } }]);
+    setPeople([{ id: '1', name: t('personDefaultName'), items: [], individualDiscount: 0, plates: { ...INITIAL_PLATES } }]);
     setSettings({ sharedDiscount: 0, hasServiceCharge: false, hasVat: false, isSushiroMode: false });
     setShowResetConfirm(false);
   };
@@ -224,13 +227,20 @@ export default function App() {
               <Receipt size={24} strokeWidth={2.5} />
             </div>
             <div>
-              <h1 className="font-extrabold text-2xl tracking-tighter text-slate-900 leading-none">Bill splitter</h1>
+              <h1 className="font-extrabold text-2xl tracking-tighter text-slate-900 leading-none">{t('appTitle')}</h1>
               <p className="text-[10px] uppercase tracking-[0.25em] text-indigo-500 font-bold mt-1">
-                {settings.isSushiroMode ? '🍣 Sushiro Mode' : '🍛 Bill Splitter'}
+                {settings.isSushiroMode ? `🍣 ${t('sushiroMode')}` : `🍛 ${t('smartSplitter')}`}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => i18n.changeLanguage(i18n.language === 'th' ? 'en' : 'th')}
+              className="p-3 rounded-xl border border-slate-100 bg-white text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 transition-colors text-xs font-black uppercase tracking-widest"
+              title="Change Language"
+            >
+              {i18n.language === 'th' ? 'EN' : 'TH'}
+            </button>
             <motion.button 
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
@@ -240,7 +250,7 @@ export default function App() {
                   ? 'bg-orange-50 border-orange-200 text-orange-500 shadow-sm' 
                   : 'bg-white border-slate-100 text-slate-300'
               }`}
-              title="สลับโหมด Sushiro"
+              title={t('toggleSushiro')}
             >
               🍣
             </motion.button>
@@ -249,7 +259,7 @@ export default function App() {
               whileTap={{ scale: 0.9 }}
               onClick={() => setShowResetConfirm(true)}
               className="p-3 text-slate-300 hover:text-rose-500 transition-colors bg-white rounded-xl border border-slate-100"
-              title="ล้างข้อมูลทั้งหมด"
+              title={t('clearAll')}
             >
               <Trash2 size={22} />
             </motion.button>
@@ -276,21 +286,21 @@ export default function App() {
                 <Trash2 size={32} />
               </div>
               <div className="space-y-2">
-                <h3 className="font-black text-xl text-slate-900">ล้างข้อมูลทั้งหมด?</h3>
-                <p className="text-sm font-medium text-slate-500">ข้อมูลรายการอาหารและชื่อสมาชิกทุกคนจะถูกลบออก และไม่สามารถกู้คืนได้</p>
+                <h3 className="font-black text-xl text-slate-900">{t('clearConfirmTitle')}</h3>
+                <p className="text-sm font-medium text-slate-500">{t('clearConfirmDesc')}</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <button 
                   onClick={() => setShowResetConfirm(false)}
                   className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-sm transition-all"
                 >
-                  ยกเลิก
+                  {t('cancel')}
                 </button>
                 <button 
                   onClick={resetAll}
                   className="py-4 bg-rose-500 text-white rounded-2xl font-bold text-sm shadow-lg shadow-rose-200 transition-all hover:bg-rose-600"
                 >
-                  ล้างข้อมูล
+                  {t('clear')}
                 </button>
               </div>
             </motion.div>
@@ -303,12 +313,12 @@ export default function App() {
         <section className="glass-card rounded-[2.5rem] p-7 space-y-6">
           <div className="flex items-center gap-2 text-indigo-500 px-1">
             <Settings2 size={18} />
-            <h2 className="text-[11px] font-black uppercase tracking-[0.2em]">ตั้งค่าบิลส่วนรวม</h2>
+            <h2 className="text-[11px] font-black uppercase tracking-[0.2em]">{t('globalSettings')}</h2>
           </div>
           
           <div className="flex flex-row items-end gap-3">
             <div className="flex-[2] min-w-0 space-y-3">
-              <label className="text-xs font-bold text-slate-500 ml-1">ส่วนลดรวม (บาท)</label>
+              <label className="text-xs font-bold text-slate-500 ml-1">{t('sharedDiscount')}</label>
               <div className="relative group">
                 <input 
                   type="number"
@@ -353,7 +363,7 @@ export default function App() {
           <div className="flex items-center justify-between px-3">
             <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
               <Users size={18} />
-              สมาชิกทั้งหมด ({people.length})
+              {t('members')} ({people.length})
             </h2>
           </div>
 
@@ -378,7 +388,7 @@ export default function App() {
                         value={person.name}
                         onChange={(e) => updatePersonName(person.id, e.target.value)}
                         className="text-xl font-extrabold bg-transparent border-none p-0 focus:ring-0 w-full placeholder:text-slate-200 text-slate-800"
-                        placeholder="ชื่อเพื่อน..."
+                        placeholder={t('memberNamePlaceholder')}
                       />
                     </div>
                     {people.length > 1 && (
@@ -409,7 +419,7 @@ export default function App() {
                                 value={item.name}
                                 onChange={(e) => updateItem(person.id, item.id, { name: e.target.value })}
                                 className="flex-1 text-sm bg-transparent border-none focus:ring-0 p-0 placeholder:text-slate-300 font-semibold text-slate-600"
-                                placeholder="ระบุเมนูอาหาร..."
+                                placeholder={t('itemNamePlaceholder')}
                               />
                               <div className="relative group/price">
                                 <input 
@@ -437,7 +447,7 @@ export default function App() {
                           className="w-full py-4 border-2 border-dashed border-slate-100 rounded-[1.25rem] text-slate-400 hover:border-indigo-400 hover:text-indigo-500 hover:bg-indigo-50/30 transition-all flex items-center justify-center gap-3 group/add"
                         >
                           <Plus size={18} className="group-hover/add:scale-125 transition-transform" />
-                          <span className="text-[11px] font-black uppercase tracking-widest">เพิ่มรายการอาหาร</span>
+                          <span className="text-[11px] font-black uppercase tracking-widest">{t('addItem')}</span>
                         </button>
                       </>
                     ) : (
@@ -478,7 +488,7 @@ export default function App() {
 
                   <div className="pt-6 border-t border-slate-50 flex items-end justify-between">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest leading-none block ml-1">ส่วนลดเฉพาะคน (฿)</label>
+                      <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest leading-none block ml-1">{t('individualDiscount')}</label>
                       <div className="relative w-32 group/disc">
                         <input 
                           type="number"
@@ -491,7 +501,7 @@ export default function App() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">ยอดชำระของคุณ</p>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('yourTotal')}</p>
                       <p className="text-3xl font-black text-indigo-600 tabular-nums tracking-tighter">
                         ฿{breakdown.peopleTotals.find(pt => pt.personId === person.id)?.finalShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
@@ -509,7 +519,7 @@ export default function App() {
             <div className="p-2 bg-white rounded-xl shadow-sm border border-indigo-50 text-indigo-500">
               <UserPlus size={20} strokeWidth={2.5} />
             </div>
-            <span className="text-[11px] font-black uppercase tracking-[0.2em]">เพิ่มสมาชิก</span>
+            <span className="text-[11px] font-black uppercase tracking-[0.2em]">{t('addMember')}</span>
           </button>
         </div>
 
@@ -521,22 +531,22 @@ export default function App() {
           <div className="flex items-center justify-between relative z-10">
             <h3 className="text-[11px] font-black uppercase tracking-[0.2em] flex items-center gap-2 text-white/50">
               <ReceiptText size={18} />
-              บทสรุปยอดสุทธิ
+              {t('summary')}
             </h3>
             <div className="px-4 py-1.5 bg-slate-800 rounded-full text-[10px] font-black text-white/80 uppercase tracking-widest border border-slate-700">
-              {people.length} ท่าน
+              {people.length} {t('persons')}
             </div>
           </div>
 
           <div className="space-y-5 text-sm font-semibold relative z-10">
             <div className="flex justify-between items-center text-slate-500">
-              <span>ราคารวมก่อนลด</span>
+              <span>{t('subtotal')}</span>
               <span className="text-slate-200">฿{breakdown.subtotal.toLocaleString()}</span>
             </div>
             
             {(breakdown.totalIndividualDiscounts + breakdown.totalSharedDiscount) > 0 && (
               <div className="flex justify-between items-center text-slate-500">
-                <span>ส่วนลดทั้งหมด</span>
+                <span>{t('totalDiscounts')}</span>
                 <span className="text-emerald-400 font-bold">- ฿{(breakdown.totalIndividualDiscounts + breakdown.totalSharedDiscount).toLocaleString()}</span>
               </div>
             )}
@@ -559,7 +569,7 @@ export default function App() {
             )}
 
             <div className="pt-6 border-t border-slate-800/50 space-y-4">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">ยอดรายบุคคล</h4>
+              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{t('individualTotals')}</h4>
               <div className="grid grid-cols-1 gap-3">
                 {people.map(p => {
                   const pt = breakdown.peopleTotals.find(total => total.personId === p.id);
@@ -581,7 +591,7 @@ export default function App() {
 
             <div className="pt-8 border-t border-slate-800 flex justify-between items-end">
               <div>
-                <p className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-1">ยอดชำระสุทธิ</p>
+                <p className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-1">{t('netTotal')}</p>
                 <div className="text-5xl font-black text-white tracking-tighter tabular-nums leading-none">
                   ฿{breakdown.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
@@ -607,7 +617,7 @@ export default function App() {
 
       <div className="text-center pb-8 pt-4">
         <p className="text-xs font-medium text-slate-400">
-          Vibe with ❤️ by Miickiie
+          {t('credit')}
         </p>
       </div>
 
@@ -615,7 +625,7 @@ export default function App() {
       <footer className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 w-full max-w-sm px-4">
         <div className="bg-white/70 backdrop-blur-3xl border border-white rounded-[2rem] p-4 flex items-center justify-between gap-6 shadow-[0_20px_50px_rgba(0,0,0,0.15)]">
           <div className="pl-4">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ยอดสุทธิ</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('netTotal')}</p>
             <p className="text-2xl font-black text-slate-900 tabular-nums tracking-tighter">
               ฿{breakdown.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
@@ -634,7 +644,7 @@ export default function App() {
                   className="flex items-center gap-2"
                 >
                   <Check size={18} strokeWidth={3} />
-                  <span className="text-xs font-black uppercase tracking-widest">COPIED</span>
+                  <span className="text-xs font-black uppercase tracking-widest">{t('copied')}</span>
                 </motion.div>
               ) : (
                 <motion.div 
@@ -645,7 +655,7 @@ export default function App() {
                   className="flex items-center gap-2"
                 >
                   <Share2 size={18} strokeWidth={2.5} />
-                  <span className="text-xs font-black uppercase tracking-widest">SHARE</span>
+                  <span className="text-xs font-black uppercase tracking-widest">{t('share')}</span>
                 </motion.div>
               )}
             </AnimatePresence>

@@ -262,7 +262,8 @@ export default function App() {
           }
         } catch (err) {
           console.error(err);
-          alert(t('scanFailed'));
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          alert(`${t('scanFailed')}\n\nDetails: ${errorMessage}`);
         } finally {
           setIsScanning(false);
           // Reset file input

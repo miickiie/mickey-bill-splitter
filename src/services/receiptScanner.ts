@@ -1,9 +1,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 export async function scanReceipt(base64Image: string, mimeType: string) {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error("Gemini API Key is missing");
+  }
+
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-2.5-flash",
     contents: {
       parts: [
         {
@@ -43,6 +47,14 @@ export async function scanReceipt(base64Image: string, mimeType: string) {
     throw new Error("No output from model.");
   }
 
-  const result = JSON.parse(response.text.trim()) as { name: string; price: number }[];
+  let text = response.text.trim();
+  // Strip markdown code block if present
+  if (text.startsWith("```json")) {
+    text = text.substring(7, text.length - 3).trim();
+  } else if (text.startsWith("```")) {
+    text = text.substring(3, text.length - 3).trim();
+  }
+
+  const result = JSON.parse(text) as { name: string; price: number }[];
   return result;
 }

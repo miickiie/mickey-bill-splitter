@@ -28,6 +28,9 @@
     "netTotal": "ยอดชำระสุทธิ",
     "copied": "COPIED",
     "share": "SHARE",
+    "scanReceipt": "สแกนบิล",
+    "scanning": "กำลังสแกน...",
+    "scanFailed": "ไม่สามารถอ่านบิลได้ กรุณาลองอีกครั้ง",
     "copyTemplateSubtotal": "🧾 สรุปยอด\n\n",
     "copyTemplateTotal": "\n💰 รวม: ฿{{total}}\n",
     "credit": "Vibe with ❤️ by Miickiie"

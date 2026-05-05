@@ -28,6 +28,9 @@
     "netTotal": "Net Total",
     "copied": "COPIED",
     "share": "SHARE",
+    "scanReceipt": "Scan Receipt",
+    "scanning": "Scanning...",
+    "scanFailed": "Failed to extract items from receipt. Please try again.",
     "copyTemplateSubtotal": "🧾 Summary\n\n",
     "copyTemplateTotal": "\n💰 Total: ฿{{total}}\n",
     "credit": "Vibe with ❤️ by Miickiie"

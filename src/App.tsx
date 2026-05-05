@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -12,10 +12,12 @@ import {
   X,
   Share2,
   Copy,
-  Minus
+  Minus,
+  Camera
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Person, Item, BillSettings, CalculationBreakdown, Plates } from './types';
+import { scanReceipt } from './services/receiptScanner';
 
 const PLATE_PRICES: Record<keyof Plates, number> = {
   white: 30,
@@ -48,6 +50,8 @@ export default function App() {
   });
   const [showCopied, setShowCopied] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Persist state to local storage
   useEffect(() => {
@@ -221,6 +225,57 @@ export default function App() {
     setPeople([{ id: '1', name: t('personDefaultName'), items: [], individualDiscount: 0, plates: { ...INITIAL_PLATES } }]);
     setSettings({ sharedDiscount: 0, sharedDiscountType: 'amount', hasServiceCharge: false, hasVat: false, isSushiroMode: false });
     setShowResetConfirm(false);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsScanning(true);
+      const reader = new FileReader();
+      
+      reader.onloadend = async () => {
+        const base64Data = reader.result as string;
+        // strip data:image/...;base64,
+        const base64Image = base64Data.split(',')[1];
+        
+        try {
+          const items = await scanReceipt(base64Image, file.type);
+          if (items && items.length > 0) {
+            // Remove the default person if it's empty
+            const currentPeople = people.length === 1 && people[0].name === t('personDefaultName') && people[0].items.length === 0 
+              ? [] 
+              : people;
+
+            const newPeople: Person[] = items.map(item => ({
+              id: crypto.randomUUID(),
+              name: item.name,
+              items: [{ id: crypto.randomUUID(), name: item.name, price: item.price }],
+              individualDiscount: 0,
+              plates: { ...INITIAL_PLATES }
+            }));
+
+            // Make sure not to be in Sushiro mode
+            setSettings(prev => ({ ...prev, isSushiroMode: false }));
+            setPeople([...currentPeople, ...newPeople]);
+          }
+        } catch (err) {
+          console.error(err);
+          alert(t('scanFailed'));
+        } finally {
+          setIsScanning(false);
+          // Reset file input
+          if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+      };
+
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error(err);
+      alert(t('scanFailed'));
+      setIsScanning(false);
+    }
   };
 
   return (
@@ -531,15 +586,41 @@ export default function App() {
             ))}
           </AnimatePresence>
 
-          <button 
-            onClick={addPerson}
-            className="w-full py-4 rounded-[2rem] bg-indigo-50/30 border-2 border-dashed border-indigo-100 text-indigo-400 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
-          >
-            <div className="p-2 bg-white rounded-xl shadow-sm border border-indigo-50 text-indigo-500">
-              <UserPlus size={20} strokeWidth={2.5} />
-            </div>
-            <span className="text-[11px] font-black uppercase tracking-[0.2em]">{t('addMember')}</span>
-          </button>
+          <div className="grid grid-cols-2 gap-3">
+            <button 
+              onClick={addPerson}
+              className="w-full py-4 rounded-[2rem] bg-indigo-50/30 border-2 border-dashed border-indigo-100 text-indigo-400 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 transition-all flex flex-col items-center justify-center gap-2 active:scale-[0.98]"
+            >
+              <div className="p-2 bg-white rounded-xl shadow-sm border border-indigo-50 text-indigo-500">
+                <UserPlus size={20} strokeWidth={2.5} />
+              </div>
+              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-center">{t('addMember')}</span>
+            </button>
+
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isScanning}
+              className="w-full py-4 rounded-[2rem] bg-indigo-50/30 border-2 border-dashed border-indigo-100 text-indigo-400 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 transition-all flex flex-col items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="p-2 bg-white rounded-xl shadow-sm border border-indigo-50 text-indigo-500">
+                {isScanning ? (
+                  <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
+                    <Receipt size={20} strokeWidth={2.5} />
+                  </motion.div>
+                ) : (
+                  <Camera size={20} strokeWidth={2.5} />
+                )}
+              </div>
+              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-center">{isScanning ? t('scanning') : t('scanReceipt')}</span>
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept="image/*"
+              onChange={handleFileUpload}
+            />
+          </div>
         </div>
 
         {/* Detailed Summary Card */}

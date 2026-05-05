@@ -41,6 +41,7 @@ export default function App() {
   ]);
   const [settings, setSettings] = useState<BillSettings>({
     sharedDiscount: 0,
+    sharedDiscountType: 'amount',
     hasServiceCharge: false,
     hasVat: false,
     isSushiroMode: false
@@ -166,7 +167,11 @@ export default function App() {
       return { personId: p.id, personBaseAfterIndividual, itemsTotal };
     });
 
-    const sharedDiscountPerPerson = (settings.sharedDiscount || 0) / (people.length || 1);
+    const totalSharedDiscountValue = settings.sharedDiscountType === 'percentage'
+      ? subtotal * ((settings.sharedDiscount || 0) / 100)
+      : (settings.sharedDiscount || 0);
+
+    const sharedDiscountPerPerson = totalSharedDiscountValue / (people.length || 1);
     
     const finalBases = peopleBases.map(pb => {
       const baseAfterShared = Math.max(0, pb.personBaseAfterIndividual - sharedDiscountPerPerson);
@@ -191,7 +196,7 @@ export default function App() {
       subtotal,
       totalIndividualDiscounts,
       sharedDiscountPerPerson,
-      totalSharedDiscount: settings.sharedDiscount || 0,
+      totalSharedDiscount: totalSharedDiscountValue,
       serviceChargeTotal,
       vatTotal,
       grandTotal,
@@ -214,7 +219,7 @@ export default function App() {
 
   const resetAll = () => {
     setPeople([{ id: '1', name: t('personDefaultName'), items: [], individualDiscount: 0, plates: { ...INITIAL_PLATES } }]);
-    setSettings({ sharedDiscount: 0, hasServiceCharge: false, hasVat: false, isSushiroMode: false });
+    setSettings({ sharedDiscount: 0, sharedDiscountType: 'amount', hasServiceCharge: false, hasVat: false, isSushiroMode: false });
     setShowResetConfirm(false);
   };
 
@@ -318,7 +323,19 @@ export default function App() {
           
           <div className="flex flex-row items-end gap-3">
             <div className="flex-[2] min-w-0 space-y-3">
-              <label className="text-xs font-bold text-slate-500 ml-1">{t('sharedDiscount')}</label>
+              <div className="flex items-center justify-between ml-1">
+                <label className="text-xs font-bold text-slate-500">{t('sharedDiscount')}</label>
+                <div className="flex bg-slate-100 p-0.5 rounded-lg shrink-0">
+                  <button 
+                    onClick={() => setSettings({ ...settings, sharedDiscountType: 'amount' })}
+                    className={`px-3 py-1 rounded-md text-[10px] font-black transition-all ${settings.sharedDiscountType === 'amount' || !settings.sharedDiscountType ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                  >฿</button>
+                  <button 
+                    onClick={() => setSettings({ ...settings, sharedDiscountType: 'percentage' })}
+                    className={`px-3 py-1 rounded-md text-[10px] font-black transition-all ${settings.sharedDiscountType === 'percentage' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                  >%</button>
+                </div>
+              </div>
               <div className="relative group">
                 <input 
                   type="number"
@@ -328,7 +345,9 @@ export default function App() {
                   className="w-full bg-slate-50 border-2 border-transparent group-focus-within:border-indigo-500/30 group-focus-within:bg-white rounded-[1.25rem] px-5 py-4 outline-none transition-all font-bold text-lg text-slate-800 placeholder:text-slate-300"
                   placeholder="0.00"
                 />
-                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-indigo-400 font-black">฿</span>
+                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-indigo-400 font-black">
+                  {settings.sharedDiscountType === 'percentage' ? '%' : '฿'}
+                </span>
               </div>
             </div>
 

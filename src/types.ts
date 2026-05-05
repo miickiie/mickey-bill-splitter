@@ -22,6 +22,7 @@ export interface Person {
 
 export interface BillSettings {
   sharedDiscount: number;
+  sharedDiscountType?: 'amount' | 'percentage';
   hasServiceCharge: boolean; // 10%
   hasVat: boolean; // 7%
   isSushiroMode?: boolean;

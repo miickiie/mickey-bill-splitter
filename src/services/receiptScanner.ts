@@ -7,7 +7,7 @@ export async function scanReceipt(base64Image: string, mimeType: string) {
 
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const response = await ai.models.generateContent({
-    model: "gemini-3.1-pro-preview",
+    model: "gemini-2.5-pro",
     contents: {
       parts: [
         {

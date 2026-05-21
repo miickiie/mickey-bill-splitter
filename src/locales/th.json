@@ -2,7 +2,7 @@
   "translation": {
     "appTitle": "Bill Splitter",
     "sushiroMode": "Sushiro Mode",
-    "smartSplitter": "Bill Splitter",
+    "smartSplitter": "Bill-split Mode",
     "toggleSushiro": "สลับโหมด Sushiro",
     "clearAll": "ล้างข้อมูลทั้งหมด",
     "clearConfirmTitle": "ล้างข้อมูลทั้งหมด?",
@@ -12,7 +12,7 @@
     "globalSettings": "การตั้งค่าบิล",
     "sharedDiscount": "ส่วนลดรวม (บาท)",
     "members": "สมาชิกทั้งหมด",
-    "personDefaultName": "คุณ A",
+    "personDefaultName": "สมาชิก A",
     "newMemberDefaultName": "สมาชิกใหม่ {{count}}",
     "memberNamePlaceholder": "ชื่อเพื่อน...",
     "itemNamePlaceholder": "ระบุเมนูอาหาร...",
@@ -31,6 +31,7 @@
     "scanReceipt": "สแกนบิล",
     "scanning": "กำลังสแกน...",
     "scanFailed": "ไม่สามารถอ่านบิลได้ กรุณาลองอีกครั้ง",
+    "splitQuantitiesOption": "แยกเมนูเดียวกันให้แต่ละคน (3 x เมนู = 3 คน)",
     "copyTemplateSubtotal": "🧾 สรุปยอด\n\n",
     "copyTemplateTotal": "\n💰 รวม: ฿{{total}}\n",
     "credit": "Vibe with ❤️ by Miickiie"

@@ -26,6 +26,7 @@ export interface BillSettings {
   hasServiceCharge: boolean; // 10%
   hasVat: boolean; // 7%
   isSushiroMode?: boolean;
+  splitScanItemsByQuantity?: boolean;
 }
 
 export interface CalculationBreakdown {

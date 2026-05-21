@@ -2,7 +2,7 @@
   "translation": {
     "appTitle": "Bill Splitter",
     "sushiroMode": "Sushiro Mode",
-    "smartSplitter": "Bill Splitter",
+    "smartSplitter": "Bill-split Mode",
     "toggleSushiro": "Toggle to Sushiro Mode",
     "clearAll": "Clear all data",
     "clearConfirmTitle": "Clear all data?",
@@ -12,7 +12,7 @@
     "globalSettings": "Global Settings",
     "sharedDiscount": "Shared Discount (฿)",
     "members": "Members",
-    "personDefaultName": "Person A",
+    "personDefaultName": "Member A",
     "newMemberDefaultName": "New Member {{count}}",
     "memberNamePlaceholder": "Member name...",
     "itemNamePlaceholder": "Item name...",
@@ -31,6 +31,7 @@
     "scanReceipt": "Scan Receipt",
     "scanning": "Scanning...",
     "scanFailed": "Failed to extract items from receipt. Please try again.",
+    "splitQuantitiesOption": "Split identical items / person (3 x 1 item = 3 persons)",
     "copyTemplateSubtotal": "🧾 Summary\n\n",
     "copyTemplateTotal": "\n💰 Total: ฿{{total}}\n",
     "credit": "Vibe with ❤️ by Miickiie"

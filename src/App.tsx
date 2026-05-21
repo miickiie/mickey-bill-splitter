@@ -48,6 +48,14 @@ export default function App() {
     hasVat: false,
     isSushiroMode: false
   });
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('bill-splitter-theme');
+      if (saved) return saved === 'dark';
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
+  });
   const [showCopied, setShowCopied] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -70,6 +78,16 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('bill-splitter-state-v2', JSON.stringify({ people, settings }));
   }, [people, settings]);
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('bill-splitter-theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('bill-splitter-theme', 'light');
+    }
+  }, [isDarkMode]);
 
   const addPerson = () => {
     const newPerson: Person = {
@@ -248,13 +266,37 @@ export default function App() {
               ? [] 
               : people;
 
-            const newPeople: Person[] = items.map(item => ({
-              id: crypto.randomUUID(),
-              name: item.name,
-              items: [{ id: crypto.randomUUID(), name: item.name, price: item.price }],
-              individualDiscount: 0,
-              plates: { ...INITIAL_PLATES }
-            }));
+            const newPeople: Person[] = [];
+            const splitQuantities = settings.splitScanItemsByQuantity !== false;
+
+            items.forEach(item => {
+              const qty = (item.quantity && item.quantity > 0) ? item.quantity : 1;
+              const unitPrice = item.price / qty;
+              
+              if (splitQuantities) {
+                for (let i = 0; i < qty; i++) {
+                  newPeople.push({
+                    id: crypto.randomUUID(),
+                    name: item.name,
+                    items: [{ id: crypto.randomUUID(), name: item.name, price: unitPrice }],
+                    individualDiscount: 0,
+                    plates: { ...INITIAL_PLATES }
+                  });
+                }
+              } else {
+                const personItems = [];
+                for (let i = 0; i < qty; i++) {
+                  personItems.push({ id: crypto.randomUUID(), name: item.name, price: unitPrice });
+                }
+                newPeople.push({
+                  id: crypto.randomUUID(),
+                  name: item.name,
+                  items: personItems,
+                  individualDiscount: 0,
+                  plates: { ...INITIAL_PLATES }
+                });
+              }
+            });
 
             // Make sure not to be in Sushiro mode
             setSettings(prev => ({ ...prev, isSushiroMode: false }));
@@ -281,15 +323,18 @@ export default function App() {
 
   return (
     <div className="min-h-screen pb-40 bg-slate-50/50">
-      <header className="sticky top-0 z-30 bg-white/70 backdrop-blur-2xl border-b border-indigo-50 px-6 py-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+      <header className="sticky top-0 z-30 bg-white/50 backdrop-blur-3xl saturate-[1.3] border-b border-white/40 px-6 py-5 shadow-[0_4px_30px_rgba(0,0,0,0.03)]">
         <div className="max-w-xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 vibrant-gradient rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-200">
+            <button
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className="w-12 h-12 shrink-0 vibrant-gradient rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-200 hover:scale-105 active:scale-95 transition-all outline-none"
+              title="Toggle Dark Mode"
+            >
               <Receipt size={24} strokeWidth={2.5} />
-            </div>
+            </button>
             <div>
-              <h1 className="font-extrabold text-2xl tracking-tighter text-slate-900 leading-none">{t('appTitle')}</h1>
-              <p className="text-[10px] uppercase tracking-[0.25em] text-indigo-500 font-bold mt-1">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-indigo-600 font-black mt-1">
                 {settings.isSushiroMode ? `🍣 ${t('sushiroMode')}` : `🍛 ${t('smartSplitter')}`}
               </p>
             </div>
@@ -297,7 +342,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => i18n.changeLanguage(i18n.language === 'th' ? 'en' : 'th')}
-              className="p-3 rounded-xl border border-slate-100 bg-white text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 transition-colors text-xs font-black uppercase tracking-widest"
+              className="w-11 h-11 flex items-center justify-center shrink-0 rounded-xl border border-slate-200 bg-white/80 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors text-xs font-black uppercase tracking-widest shadow-sm"
               title="Change Language"
             >
               {i18n.language === 'th' ? 'EN' : 'TH'}
@@ -306,10 +351,10 @@ export default function App() {
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => setSettings({ ...settings, isSushiroMode: !settings.isSushiroMode })}
-              className={`p-3 rounded-xl border transition-all text-xl ${
+              className={`w-11 h-11 flex items-center justify-center shrink-0 rounded-xl border transition-all text-xl shadow-sm ${
                 settings.isSushiroMode 
-                  ? 'bg-orange-50 border-orange-200 text-orange-500 shadow-sm' 
-                  : 'bg-white border-slate-100 text-slate-300'
+                  ? 'bg-orange-50 border-orange-200 text-orange-500' 
+                  : 'bg-white/80 border-slate-200 text-slate-500 hover:text-slate-700'
               }`}
               title={t('toggleSushiro')}
             >
@@ -319,10 +364,10 @@ export default function App() {
               whileHover={{ scale: 1.1, rotate: 5 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => setShowResetConfirm(true)}
-              className="p-3 text-slate-300 hover:text-rose-500 transition-colors bg-white rounded-xl border border-slate-100"
+              className="w-11 h-11 flex items-center justify-center shrink-0 text-slate-500 hover:text-rose-600 shadow-sm transition-colors bg-white/80 rounded-xl border border-slate-200"
               title={t('clearAll')}
             >
-              <Trash2 size={22} />
+              <Trash2 size={20} />
             </motion.button>
           </div>
         </div>
@@ -372,7 +417,7 @@ export default function App() {
       <main className="max-w-xl mx-auto p-4 space-y-8">
         {/* Global Settings Section */}
         <section className="glass-card rounded-[2.5rem] p-7 space-y-6">
-          <div className="flex items-center gap-2 text-indigo-500 px-1">
+          <div className="flex items-center gap-2 text-indigo-600 px-1">
             <Settings2 size={18} />
             <h2 className="text-[11px] font-black uppercase tracking-[0.2em]">{t('globalSettings')}</h2>
           </div>
@@ -380,15 +425,15 @@ export default function App() {
           <div className="flex flex-row items-end gap-3">
             <div className="flex-[2] min-w-0 space-y-3">
               <div className="flex items-center justify-between ml-1">
-                <label className="text-xs font-bold text-slate-500">{t('sharedDiscount')}</label>
-                <div className="flex bg-slate-100 p-0.5 rounded-lg shrink-0">
+                <label className="text-xs font-bold text-slate-600">{t('sharedDiscount')}</label>
+                <div className="flex bg-slate-200/50 p-0.5 rounded-lg shrink-0">
                   <button 
                     onClick={() => setSettings({ ...settings, sharedDiscountType: 'amount' })}
-                    className={`px-3 py-1 rounded-md text-[10px] font-black transition-all ${settings.sharedDiscountType === 'amount' || !settings.sharedDiscountType ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    className={`px-3 py-1 rounded-md text-[10px] font-black transition-all ${settings.sharedDiscountType === 'amount' || !settings.sharedDiscountType ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                   >฿</button>
                   <button 
                     onClick={() => setSettings({ ...settings, sharedDiscountType: 'percentage' })}
-                    className={`px-3 py-1 rounded-md text-[10px] font-black transition-all ${settings.sharedDiscountType === 'percentage' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    className={`px-3 py-1 rounded-md text-[10px] font-black transition-all ${settings.sharedDiscountType === 'percentage' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                   >%</button>
                 </div>
               </div>
@@ -398,10 +443,10 @@ export default function App() {
                   inputMode="decimal"
                   value={settings.sharedDiscount || ''}
                   onChange={(e) => setSettings({ ...settings, sharedDiscount: Number(e.target.value) })}
-                  className="w-full bg-slate-50 border-2 border-transparent group-focus-within:border-indigo-500/30 group-focus-within:bg-white rounded-[1.25rem] px-5 py-4 outline-none transition-all font-bold text-lg text-slate-800 placeholder:text-slate-300"
+                  className="w-full glass-input rounded-[1.25rem] px-5 py-4 font-bold text-lg text-slate-900 placeholder:text-slate-500"
                   placeholder="0.00"
                 />
-                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-indigo-400 font-black">
+                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-indigo-500 font-black">
                   {settings.sharedDiscountType === 'percentage' ? '%' : '฿'}
                 </span>
               </div>
@@ -409,26 +454,26 @@ export default function App() {
 
             <button 
               onClick={() => setSettings({ ...settings, hasServiceCharge: !settings.hasServiceCharge })}
-              className={`flex-1 h-[62px] rounded-[1.25rem] border-2 transition-all flex flex-col items-center justify-center outline-none px-2 ${
+              className={`flex-1 h-[64px] rounded-[1.25rem] border transition-all flex flex-col items-center justify-center outline-none px-2 ${
                 settings.hasServiceCharge 
-                  ? 'bg-indigo-500 border-indigo-500 text-white shadow-lg shadow-indigo-100' 
-                  : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'
+                  ? 'bg-indigo-600 backdrop-blur-md border-indigo-500/50 text-white shadow-[0_8px_16px_rgba(99,102,241,0.2)]' 
+                  : 'glass-input text-slate-600 hover:text-slate-800'
               }`}
             >
-              <span className="text-[10px] font-black uppercase leading-tight text-center">SVC 10%</span>
-              <div className={`w-1.5 h-1.5 rounded-full mt-1.5 transition-all ${settings.hasServiceCharge ? 'bg-white scale-125' : 'bg-slate-200'}`} />
+              <span className="text-[10px] font-black uppercase leading-tight text-center relative z-10">SVC 10%</span>
+              <div className={`w-1.5 h-1.5 rounded-full mt-1.5 transition-all relative z-10 ${settings.hasServiceCharge ? 'bg-white scale-125' : 'bg-slate-400'}`} />
             </button>
             
             <button 
               onClick={() => setSettings({ ...settings, hasVat: !settings.hasVat })}
-              className={`flex-1 h-[62px] rounded-[1.25rem] border-2 transition-all flex flex-col items-center justify-center outline-none px-2 ${
+              className={`flex-1 h-[64px] rounded-[1.25rem] border transition-all flex flex-col items-center justify-center outline-none px-2 ${
                 settings.hasVat 
-                  ? 'bg-indigo-500 border-indigo-500 text-white shadow-lg shadow-indigo-100' 
-                  : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'
+                  ? 'bg-indigo-600 backdrop-blur-md border-indigo-500/50 text-white shadow-[0_8px_16px_rgba(99,102,241,0.2)]' 
+                  : 'glass-input text-slate-600 hover:text-slate-800'
               }`}
             >
-              <span className="text-[10px] font-black uppercase leading-tight text-center">VAT 7%</span>
-              <div className={`w-1.5 h-1.5 rounded-full mt-1.5 transition-all ${settings.hasVat ? 'bg-white scale-125' : 'bg-slate-200'}`} />
+              <span className="text-[10px] font-black uppercase leading-tight text-center relative z-10">VAT 7%</span>
+              <div className={`w-1.5 h-1.5 rounded-full mt-1.5 transition-all relative z-10 ${settings.hasVat ? 'bg-white scale-125' : 'bg-slate-400'}`} />
             </button>
           </div>
         </section>
@@ -436,7 +481,7 @@ export default function App() {
         {/* Participants Content */}
         <div className="space-y-6">
           <div className="flex items-center justify-between px-3">
-            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-600 flex items-center gap-2">
               <Users size={18} />
               {t('members')} ({people.length})
             </h2>
@@ -447,10 +492,11 @@ export default function App() {
               <motion.div 
                 key={person.id}
                 layout
+                transition={{ duration: 0.2, ease: "easeOut" }}
                 initial={{ opacity: 0, y: 30, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-                className="bg-white rounded-[2.5rem] overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.03)] border border-slate-100/60 group"
+                className="glass-card rounded-[2.5rem] group"
               >
                 <div className="p-7 space-y-7">
                   <div className="flex items-center justify-between gap-4">
@@ -462,14 +508,14 @@ export default function App() {
                         type="text"
                         value={person.name}
                         onChange={(e) => updatePersonName(person.id, e.target.value)}
-                        className="text-xl font-extrabold bg-transparent border-none p-0 focus:ring-0 w-full placeholder:text-slate-200 text-slate-800"
+                        className="text-xl font-extrabold bg-transparent border-none p-0 focus:ring-0 w-full placeholder:text-slate-400 text-slate-900"
                         placeholder={t('memberNamePlaceholder')}
                       />
                     </div>
                     {people.length > 1 && (
                       <button 
                         onClick={() => removePerson(person.id)}
-                        className="p-3 text-slate-200 hover:text-rose-500 hover:bg-rose-50 rounded-2xl transition-all"
+                        className="p-3 text-slate-400 hover:text-rose-600 hover:bg-rose-100 rounded-2xl transition-all"
                       >
                         <Trash2 size={20} />
                       </button>
@@ -484,16 +530,17 @@ export default function App() {
                             <motion.div 
                               key={item.id}
                               layout
+                              transition={{ duration: 0.2, ease: "easeOut" }}
                               initial={{ opacity: 0, x: -20 }}
                               animate={{ opacity: 1, x: 0 }}
-                              exit={{ opacity: 0, x: 20 }}
-                              className="flex items-center gap-3 bg-slate-50/70 px-4 py-3 rounded-[1.25rem] group/item border-2 border-transparent focus-within:border-indigo-100 focus-within:bg-white transition-all shadow-sm"
+                              exit={{ opacity: 0, x: 20, transition: { duration: 0.2 } }}
+                              className="flex items-center gap-3 bg-white/40 backdrop-blur-md px-4 py-3 rounded-[1.25rem] group/item border border-white/50 focus-within:bg-white/80 transition-all shadow-[0_2px_10px_rgba(0,0,0,0.02)]"
                             >
                               <input 
                                 type="text"
                                 value={item.name}
                                 onChange={(e) => updateItem(person.id, item.id, { name: e.target.value })}
-                                className="flex-1 text-sm bg-transparent border-none focus:ring-0 p-0 placeholder:text-slate-300 font-semibold text-slate-600"
+                                className="flex-1 text-sm bg-transparent border-none focus:ring-0 p-0 placeholder:text-slate-500 font-semibold text-slate-900"
                                 placeholder={t('itemNamePlaceholder')}
                               />
                               <div className="relative group/price">
@@ -502,14 +549,14 @@ export default function App() {
                                   inputMode="decimal"
                                   value={item.price || ''}
                                   onChange={(e) => updateItem(person.id, item.id, { price: Number(e.target.value) })}
-                                  className="w-24 text-sm font-extrabold bg-white border border-slate-100 rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none text-right transition-all shadow-inner"
+                                  className="w-24 text-sm font-extrabold glass-input rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500 text-right text-slate-900"
                                   placeholder="0"
                                 />
-                                <span className="absolute -left-3.5 top-1/2 -translate-y-1/2 text-[10px] text-indigo-400 font-black">฿</span>
+                                <span className="absolute -left-3.5 top-1/2 -translate-y-1/2 text-[10px] text-indigo-500 font-black">฿</span>
                               </div>
                               <button 
                                 onClick={() => removeItem(person.id, item.id)}
-                                className="p-1.5 text-slate-300 hover:text-orange-500 transition-colors"
+                                className="p-1.5 text-slate-500 hover:text-orange-600 transition-colors"
                               >
                                 <X size={18} />
                               </button>
@@ -519,7 +566,7 @@ export default function App() {
 
                         <button 
                           onClick={() => addItem(person.id)}
-                          className="w-full py-4 border-2 border-dashed border-slate-100 rounded-[1.25rem] text-slate-400 hover:border-indigo-400 hover:text-indigo-500 hover:bg-indigo-50/30 transition-all flex items-center justify-center gap-3 group/add"
+                          className="w-full py-4 border-2 border-dashed border-slate-300 rounded-[1.25rem] text-slate-500 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-all flex items-center justify-center gap-3 group/add"
                         >
                           <Plus size={18} className="group-hover/add:scale-125 transition-transform" />
                           <span className="text-[11px] font-black uppercase tracking-widest">{t('addItem')}</span>
@@ -536,24 +583,24 @@ export default function App() {
                           { color: 'black' as const, emoji: '⚫️', label: '100' }
                         ].map((p) => (
                           <div key={p.color} className="flex flex-col items-center gap-2">
-                            <span className="text-[10px] font-black text-slate-400">{p.label}฿</span>
+                            <span className="text-[10px] font-black text-slate-600">{p.label}฿</span>
                             <button 
                               onClick={() => updatePlateCount(person.id, p.color, 1)}
-                              className="w-full aspect-square rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-xl hover:bg-white hover:border-indigo-200 hover:shadow-sm active:scale-95 transition-all relative overflow-hidden group"
+                              className="w-full aspect-square rounded-2xl bg-white/50 backdrop-blur-md border border-white flex items-center justify-center text-xl hover:bg-white hover:border-indigo-200 hover:shadow-sm active:scale-95 transition-all relative overflow-hidden group shadow-[0_2px_8px_rgba(0,0,0,0.02)]"
                             >
                               {p.emoji}
                               <div className="absolute top-0 right-0 p-1 opacity-0 group-hover:opacity-100">
-                                <Plus size={10} className="text-indigo-400" />
+                                <Plus size={10} className="text-indigo-500" />
                               </div>
                             </button>
                             <div className="flex items-center gap-2">
                               <button 
                                 onClick={() => updatePlateCount(person.id, p.color, -1)}
-                                className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-colors"
+                                className="w-5 h-5 rounded-full bg-white/60 border border-white flex items-center justify-center text-slate-500 hover:bg-rose-50 hover:text-rose-500 hover:border-rose-100 transition-colors shadow-sm"
                               >
                                 <Minus size={10} />
                               </button>
-                              <span className="text-sm font-black text-slate-800 w-4 text-center">{person.plates?.[p.color] || 0}</span>
+                              <span className="text-sm font-black text-slate-900 w-4 text-center">{person.plates?.[p.color] || 0}</span>
                             </div>
                           </div>
                         ))}
@@ -563,21 +610,21 @@ export default function App() {
 
                   <div className="pt-6 border-t border-slate-50 flex items-end justify-between">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest leading-none block ml-1">{t('individualDiscount')}</label>
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none block ml-1">{t('individualDiscount')}</label>
                       <div className="relative w-32 group/disc">
                         <input 
                           type="number"
                           inputMode="decimal"
                           value={person.individualDiscount || ''}
                           onChange={(e) => updateIndividualDiscount(person.id, Number(e.target.value))}
-                          className="w-full text-sm font-bold bg-slate-50 border-2 border-transparent group-focus-within/disc:border-indigo-200 rounded-[1rem] px-4 py-2.5 outline-none transition-all placeholder:text-slate-200"
+                          className="w-full text-sm font-bold glass-input rounded-[1rem] px-4 py-2.5 placeholder:text-slate-500 text-slate-900"
                           placeholder="0.00"
                         />
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('yourTotal')}</p>
-                      <p className="text-3xl font-black text-indigo-600 tabular-nums tracking-tighter">
+                      <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-1">{t('yourTotal')}</p>
+                      <p className="text-3xl font-black text-indigo-700 tabular-nums tracking-tighter">
                         ฿{breakdown.peopleTotals.find(pt => pt.personId === person.id)?.finalShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                     </div>
@@ -587,50 +634,68 @@ export default function App() {
             ))}
           </AnimatePresence>
 
-          <div className="grid grid-cols-2 gap-3">
-            <button 
-              onClick={addPerson}
-              className="w-full py-4 rounded-[2rem] bg-indigo-50/30 border-2 border-dashed border-indigo-100 text-indigo-400 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 transition-all flex flex-col items-center justify-center gap-2 active:scale-[0.98]"
-            >
-              <div className="p-2 bg-white rounded-xl shadow-sm border border-indigo-50 text-indigo-500">
-                <UserPlus size={20} strokeWidth={2.5} />
-              </div>
-              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-center">{t('addMember')}</span>
-            </button>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <button 
+                  onClick={addPerson}
+                  className="w-full py-4 rounded-[2rem] bg-indigo-50/50 border-2 border-dashed border-indigo-200 text-indigo-600 hover:bg-indigo-100 hover:border-indigo-300 hover:text-indigo-700 transition-all flex flex-col items-center justify-center gap-2 active:scale-[0.98]"
+                >
+                  <div className="p-2 bg-white rounded-xl shadow-sm border border-indigo-50 text-indigo-500">
+                    <UserPlus size={20} strokeWidth={2.5} />
+                  </div>
+                  <span className="text-[11px] font-black uppercase tracking-[0.2em] text-center">{t('addMember')}</span>
+                </button>
 
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isScanning}
-              className="w-full py-4 rounded-[2rem] bg-indigo-50/30 border-2 border-dashed border-indigo-100 text-indigo-400 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 transition-all flex flex-col items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <div className="p-2 bg-white rounded-xl shadow-sm border border-indigo-50 text-indigo-500">
-                {isScanning ? (
-                  <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
-                    <Receipt size={20} strokeWidth={2.5} />
-                  </motion.div>
-                ) : (
-                  <Camera size={20} strokeWidth={2.5} />
-                )}
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isScanning}
+                  className="w-full py-4 rounded-[2rem] bg-indigo-50/50 border-2 border-dashed border-indigo-200 text-indigo-600 hover:bg-indigo-100 hover:border-indigo-300 hover:text-indigo-700 transition-all flex flex-col items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="p-2 bg-white rounded-xl shadow-sm border border-indigo-50 text-indigo-500">
+                    {isScanning ? (
+                      <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
+                        <Receipt size={20} strokeWidth={2.5} />
+                      </motion.div>
+                    ) : (
+                      <Camera size={20} strokeWidth={2.5} />
+                    )}
+                  </div>
+                  <span className="text-[11px] font-black uppercase tracking-[0.2em] text-center">{isScanning ? t('scanning') : t('scanReceipt')}</span>
+                </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                />
               </div>
-              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-center">{isScanning ? t('scanning') : t('scanReceipt')}</span>
-            </button>
-            <input
-              type="file"
-              ref={fileInputRef}
-              className="hidden"
-              accept="image/*"
-              onChange={handleFileUpload}
-            />
-          </div>
+
+              <div className="flex items-center justify-between bg-white/40 backdrop-blur-md p-4 rounded-[1.25rem] border border-white/50">
+                <label className="text-[11px] sm:text-xs font-bold text-slate-700 select-none cursor-pointer pr-4 leading-relaxed" htmlFor="splitQuantitiesToggle">
+                  {t('splitQuantitiesOption')}
+                </label>
+                <button
+                  id="splitQuantitiesToggle"
+                  onClick={() => setSettings({ ...settings, splitScanItemsByQuantity: settings.splitScanItemsByQuantity === false ? true : false })}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${settings.splitScanItemsByQuantity !== false ? 'bg-indigo-600' : 'bg-slate-200'}`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${settings.splitScanItemsByQuantity !== false ? 'translate-x-5' : 'translate-x-0'}`}
+                  />
+                </button>
+              </div>
+            </div>
         </div>
 
         {/* Detailed Summary Card */}
-        <section className="bg-slate-900 rounded-[3rem] p-9 text-slate-400 space-y-8 shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full -mr-32 -mt-32 blur-3xl" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 rounded-full -ml-32 -mb-32 blur-3xl" />
+        <section className="glass-dark rounded-[3rem] p-9 text-slate-300 space-y-8">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full -mr-32 -mt-32 blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 rounded-full -ml-32 -mb-32 blur-3xl pointer-events-none" />
           
           <div className="flex items-center justify-between relative z-10">
-            <h3 className="text-[11px] font-black uppercase tracking-[0.2em] flex items-center gap-2 text-white/50">
+            <h3 className="text-[11px] font-black uppercase tracking-[0.2em] flex items-center gap-2 text-slate-300">
               <ReceiptText size={18} />
               {t('summary')}
             </h3>
@@ -640,13 +705,13 @@ export default function App() {
           </div>
 
           <div className="space-y-5 text-sm font-semibold relative z-10">
-            <div className="flex justify-between items-center text-slate-500">
+            <div className="flex justify-between items-center text-slate-400">
               <span>{t('subtotal')}</span>
-              <span className="text-slate-200">฿{breakdown.subtotal.toLocaleString()}</span>
+              <span className="text-white">฿{breakdown.subtotal.toLocaleString()}</span>
             </div>
             
             {(breakdown.totalIndividualDiscounts + breakdown.totalSharedDiscount) > 0 && (
-              <div className="flex justify-between items-center text-slate-500">
+              <div className="flex justify-between items-center text-slate-400">
                 <span>{t('totalDiscounts')}</span>
                 <span className="text-emerald-400 font-bold">- ฿{(breakdown.totalIndividualDiscounts + breakdown.totalSharedDiscount).toLocaleString()}</span>
               </div>
@@ -655,22 +720,22 @@ export default function App() {
             {(settings.hasServiceCharge || settings.hasVat) && (
               <div className="pt-2 flex flex-col gap-3">
                 {settings.hasServiceCharge && (
-                  <div className="flex justify-between items-center text-slate-500">
+                  <div className="flex justify-between items-center text-slate-400">
                     <span>Service Charge (10%)</span>
-                    <span className="text-indigo-300">฿{breakdown.serviceChargeTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    <span className="text-indigo-200">฿{breakdown.serviceChargeTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                   </div>
                 )}
                 {settings.hasVat && (
-                  <div className="flex justify-between items-center text-slate-500">
+                  <div className="flex justify-between items-center text-slate-400">
                     <span>VAT (7%)</span>
-                    <span className="text-indigo-300">฿{breakdown.vatTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    <span className="text-indigo-200">฿{breakdown.vatTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                   </div>
                 )}
               </div>
             )}
 
-            <div className="pt-6 border-t border-slate-800/50 space-y-4">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{t('individualTotals')}</h4>
+            <div className="pt-6 border-t border-white/10 space-y-4">
+              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">{t('individualTotals')}</h4>
               <div className="grid grid-cols-1 gap-3">
                 {people.map(p => {
                   const pt = breakdown.peopleTotals.find(total => total.personId === p.id);
@@ -678,10 +743,10 @@ export default function App() {
                   return (
                     <div key={p.id} className="flex items-center justify-between py-1 px-1 group">
                       <div className="flex items-center gap-3">
-                        <div className="w-6 h-6 rounded-lg bg-slate-800 flex items-center justify-center text-[9px] font-black text-slate-400 group-hover:text-indigo-400 transition-colors">
+                        <div className="w-6 h-6 rounded-lg bg-slate-800 flex items-center justify-center text-[9px] font-black text-slate-300 group-hover:text-indigo-400 transition-colors">
                           {p.name.charAt(0)}
                         </div>
-                        <span className="text-sm font-bold text-slate-300 group-hover:text-white transition-colors">{p.name}</span>
+                        <span className="text-sm font-bold text-slate-200 group-hover:text-white transition-colors">{p.name}</span>
                       </div>
                       <span className="text-sm font-black text-white tabular-nums">฿{pt.finalShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
@@ -690,9 +755,9 @@ export default function App() {
               </div>
             </div>
 
-            <div className="pt-8 border-t border-slate-800 flex justify-between items-end">
+            <div className="pt-8 border-t border-white/10 flex justify-between items-end">
               <div>
-                <p className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-1">{t('netTotal')}</p>
+                <p className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-1">{t('netTotal')}</p>
                 <div className="text-5xl font-black text-white tracking-tighter tabular-nums leading-none">
                   ฿{breakdown.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
@@ -717,16 +782,16 @@ export default function App() {
       </main>
 
       <div className="text-center pb-8 pt-4">
-        <p className="text-xs font-medium text-slate-400">
+        <p className="text-xs font-semibold text-slate-500">
           {t('credit')}
         </p>
       </div>
 
       {/* Modern Sticky Footer */}
       <footer className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 w-full max-w-sm px-4">
-        <div className="bg-white/70 backdrop-blur-3xl border border-white rounded-[2rem] p-4 flex items-center justify-between gap-6 shadow-[0_20px_50px_rgba(0,0,0,0.15)]">
+        <div className="glass-card rounded-[2rem] p-4 flex items-center justify-between gap-6">
           <div className="pl-4">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('netTotal')}</p>
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('netTotal')}</p>
             <p className="text-2xl font-black text-slate-900 tabular-nums tracking-tighter">
               ฿{breakdown.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>

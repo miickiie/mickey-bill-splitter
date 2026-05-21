@@ -7,7 +7,7 @@ export async function scanReceipt(base64Image: string, mimeType: string) {
 
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: "gemini-3.5-flash",
     contents: {
       parts: [
         {
@@ -17,7 +17,7 @@ export async function scanReceipt(base64Image: string, mimeType: string) {
           },
         },
         {
-          text: "Extract all items and their prices from this food receipt. Include each item exactly as shown on the receipt.",
+          text: "Extract all items, their quantities, and total prices from this food receipt. If a quantity is missing, assume it is 1. Extract exactly as shown.",
         },
       ],
     },
@@ -32,14 +32,19 @@ export async function scanReceipt(base64Image: string, mimeType: string) {
               type: Type.STRING,
               description: "The name of the item.",
             },
+            quantity: {
+              type: Type.NUMBER,
+              description: "The quantity of this item.",
+            },
             price: {
               type: Type.NUMBER,
-              description: "The price of the item.",
+              description: "The total price for this quantity of the item.",
             },
           },
-          required: ["name", "price"],
+          required: ["name", "quantity", "price"],
         },
       },
+      temperature: 0.1,
     },
   });
 
@@ -55,6 +60,6 @@ export async function scanReceipt(base64Image: string, mimeType: string) {
     text = text.substring(3, text.length - 3).trim();
   }
 
-  const result = JSON.parse(text) as { name: string; price: number }[];
+  const result = JSON.parse(text) as { name: string; quantity?: number; price: number }[];
   return result;
 }

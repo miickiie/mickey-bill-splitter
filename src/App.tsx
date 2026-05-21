@@ -534,29 +534,29 @@ export default function App() {
                               initial={{ opacity: 0, x: -20 }}
                               animate={{ opacity: 1, x: 0 }}
                               exit={{ opacity: 0, x: 20, transition: { duration: 0.2 } }}
-                              className="flex items-center gap-3 bg-white/40 backdrop-blur-md px-4 py-3 rounded-[1.25rem] group/item border border-white/50 focus-within:bg-white/80 transition-all shadow-[0_2px_10px_rgba(0,0,0,0.02)]"
+                              className="flex items-center gap-2 sm:gap-3 bg-white/40 backdrop-blur-md px-3 sm:px-4 py-2 sm:py-3 rounded-[1.25rem] group/item border border-white/50 focus-within:bg-white/80 transition-all shadow-[0_2px_10px_rgba(0,0,0,0.02)]"
                             >
                               <input 
                                 type="text"
                                 value={item.name}
                                 onChange={(e) => updateItem(person.id, item.id, { name: e.target.value })}
-                                className="flex-1 text-sm bg-transparent border-none focus:ring-0 p-0 placeholder:text-slate-500 font-semibold text-slate-900"
+                                className="flex-1 min-w-0 text-sm bg-transparent border-none focus:ring-0 p-0 placeholder:text-slate-500 font-semibold text-slate-900"
                                 placeholder={t('itemNamePlaceholder')}
                               />
-                              <div className="relative group/price">
+                              <div className="relative group/price shrink-0">
                                 <input 
                                   type="number"
                                   inputMode="decimal"
                                   value={item.price || ''}
                                   onChange={(e) => updateItem(person.id, item.id, { price: Number(e.target.value) })}
-                                  className="w-24 text-sm font-extrabold glass-input rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500 text-right text-slate-900"
+                                  className="w-20 sm:w-24 text-sm font-extrabold glass-input rounded-xl px-2 sm:px-3 py-2 focus:ring-2 focus:ring-indigo-500 text-right text-slate-900"
                                   placeholder="0"
                                 />
-                                <span className="absolute -left-3.5 top-1/2 -translate-y-1/2 text-[10px] text-indigo-500 font-black">฿</span>
+                                <span className="absolute -left-3 sm:-left-3.5 top-1/2 -translate-y-1/2 text-[10px] text-indigo-500 font-black">฿</span>
                               </div>
                               <button 
                                 onClick={() => removeItem(person.id, item.id)}
-                                className="p-1.5 text-slate-500 hover:text-orange-600 transition-colors"
+                                className="p-1 sm:p-1.5 text-slate-500 hover:text-orange-600 transition-colors shrink-0"
                               >
                                 <X size={18} />
                               </button>

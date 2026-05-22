@@ -13,7 +13,7 @@
     "sharedDiscount": "ส่วนลดรวม (บาท)",
     "members": "สมาชิกทั้งหมด",
     "personDefaultName": "สมาชิก 1",
-    "newMemberDefaultName": "สมาชิกใหม่ {{count}}",
+    "newMemberDefaultName": "สมาชิก {{count}}",
     "memberNamePlaceholder": "ชื่อสมาชิก...",
     "itemNamePlaceholder": "ระบุเมนูอาหาร...",
     "addItem": "เพิ่มรายการอาหาร",

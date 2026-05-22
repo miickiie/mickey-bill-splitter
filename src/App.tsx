@@ -334,7 +334,7 @@ export default function App() {
               <Receipt size={24} strokeWidth={2.5} />
             </button>
             <div>
-              <p className="text-[10px] uppercase tracking-[0.25em] text-indigo-600 font-black mt-1">
+              <p className="text-xs uppercase tracking-[0.25em] text-indigo-600 font-black mt-1">
                 {settings.isSushiroMode ? `🍣 ${t('sushiroMode')}` : `🍛 ${t('smartSplitter')}`}
               </p>
             </div>
@@ -342,7 +342,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => i18n.changeLanguage(i18n.language === 'th' ? 'en' : 'th')}
-              className="w-11 h-11 flex items-center justify-center shrink-0 rounded-xl border border-slate-200 bg-white/80 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors text-xs font-black uppercase tracking-widest shadow-sm"
+              className="w-11 h-11 flex items-center justify-center shrink-0 rounded-xl border border-slate-200 bg-white/80 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors text-sm font-black uppercase tracking-widest shadow-sm"
               title="Change Language"
             >
               {i18n.language === 'th' ? 'EN' : 'TH'}
@@ -393,18 +393,18 @@ export default function App() {
               </div>
               <div className="space-y-2">
                 <h3 className="font-black text-xl text-slate-900">{t('clearConfirmTitle')}</h3>
-                <p className="text-sm font-medium text-slate-500">{t('clearConfirmDesc')}</p>
+                <p className="text-base font-medium text-slate-500">{t('clearConfirmDesc')}</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <button 
                   onClick={() => setShowResetConfirm(false)}
-                  className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-sm transition-all"
+                  className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-base transition-all"
                 >
                   {t('cancel')}
                 </button>
                 <button 
                   onClick={resetAll}
-                  className="py-4 bg-rose-500 text-white rounded-2xl font-bold text-sm shadow-lg shadow-rose-200 transition-all hover:bg-rose-600"
+                  className="py-4 bg-rose-500 text-white rounded-2xl font-bold text-base shadow-lg shadow-rose-200 transition-all hover:bg-rose-600"
                 >
                   {t('clear')}
                 </button>
@@ -419,21 +419,21 @@ export default function App() {
         <section className="glass-card rounded-[2.5rem] p-7 space-y-6">
           <div className="flex items-center gap-2 text-indigo-600 px-1">
             <Settings2 size={18} />
-            <h2 className="text-[11px] font-black uppercase tracking-[0.2em]">{t('globalSettings')}</h2>
+            <h2 className="text-xs font-black uppercase tracking-[0.2em]">{t('globalSettings')}</h2>
           </div>
           
           <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-4">
             <div className="flex-[1.5] min-w-0 space-y-3">
               <div className="flex items-center justify-between ml-1">
-                <label className="text-xs font-bold text-slate-600">{t('sharedDiscount')}</label>
+                <label className="text-sm font-bold text-slate-600">{t('sharedDiscount')}</label>
                 <div className="flex bg-slate-200/50 p-0.5 rounded-lg shrink-0">
                   <button 
                     onClick={() => setSettings({ ...settings, sharedDiscountType: 'amount' })}
-                    className={`px-3 py-1 rounded-md text-[10px] font-black transition-all ${settings.sharedDiscountType === 'amount' || !settings.sharedDiscountType ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    className={`px-3 py-1 rounded-md text-sm font-black transition-all ${settings.sharedDiscountType === 'amount' || !settings.sharedDiscountType ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                   >฿</button>
                   <button 
                     onClick={() => setSettings({ ...settings, sharedDiscountType: 'percentage' })}
-                    className={`px-3 py-1 rounded-md text-[10px] font-black transition-all ${settings.sharedDiscountType === 'percentage' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    className={`px-3 py-1 rounded-md text-sm font-black transition-all ${settings.sharedDiscountType === 'percentage' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                   >%</button>
                 </div>
               </div>
@@ -461,7 +461,7 @@ export default function App() {
                     : 'glass-input text-slate-600 hover:text-slate-800'
                 }`}
               >
-                <span className="text-[10px] font-black uppercase leading-tight text-center relative z-10">SVC 10%</span>
+                <span className="text-xs font-black uppercase leading-tight text-center relative z-10">SVC 10%</span>
                 <div className={`w-1.5 h-1.5 rounded-full mt-1.5 transition-all relative z-10 ${settings.hasServiceCharge ? 'bg-white scale-125' : 'bg-slate-400'}`} />
               </button>
               
@@ -473,7 +473,7 @@ export default function App() {
                     : 'glass-input text-slate-600 hover:text-slate-800'
                 }`}
               >
-                <span className="text-[10px] font-black uppercase leading-tight text-center relative z-10">VAT 7%</span>
+                <span className="text-xs font-black uppercase leading-tight text-center relative z-10">VAT 7%</span>
                 <div className={`w-1.5 h-1.5 rounded-full mt-1.5 transition-all relative z-10 ${settings.hasVat ? 'bg-white scale-125' : 'bg-slate-400'}`} />
               </button>
             </div>
@@ -483,7 +483,7 @@ export default function App() {
         {/* Participants Content */}
         <div className="space-y-6">
           <div className="flex items-center justify-between px-3">
-            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-600 flex items-center gap-2">
+            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-600 flex items-center gap-2">
               <Users size={18} />
               {t('members')} ({people.length})
             </h2>
@@ -504,7 +504,7 @@ export default function App() {
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3 flex-1">
                       <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-500 shrink-0">
-                        <span className="text-sm font-black">{(people.indexOf(person) + 1)}</span>
+                        <span className="text-base font-black">{(people.indexOf(person) + 1)}</span>
                       </div>
                       <input 
                         type="text"
@@ -542,7 +542,7 @@ export default function App() {
                                 type="text"
                                 value={item.name}
                                 onChange={(e) => updateItem(person.id, item.id, { name: e.target.value })}
-                                className="flex-1 min-w-0 text-sm bg-transparent border-none focus:ring-0 p-0 placeholder:text-slate-500 font-semibold text-slate-900"
+                                className="flex-1 min-w-0 text-base bg-transparent border-none focus:ring-0 p-0 placeholder:text-slate-500 font-semibold text-slate-900"
                                 placeholder={t('itemNamePlaceholder')}
                               />
                               <div className="relative group/price shrink-0">
@@ -551,10 +551,10 @@ export default function App() {
                                   inputMode="decimal"
                                   value={item.price || ''}
                                   onChange={(e) => updateItem(person.id, item.id, { price: Number(e.target.value) })}
-                                  className="w-20 sm:w-24 text-sm font-extrabold glass-input rounded-xl px-2 sm:px-3 py-2 focus:ring-2 focus:ring-indigo-500 text-right text-slate-900"
+                                  className="w-20 sm:w-24 text-base font-extrabold glass-input rounded-xl px-2 sm:px-3 py-2 focus:ring-2 focus:ring-indigo-500 text-right text-slate-900"
                                   placeholder="0"
                                 />
-                                <span className="absolute -left-3 sm:-left-3.5 top-1/2 -translate-y-1/2 text-[10px] text-indigo-500 font-black">฿</span>
+                                <span className="absolute -left-3 sm:-left-3.5 top-1/2 -translate-y-1/2 text-sm text-indigo-500 font-black">฿</span>
                               </div>
                               <button 
                                 onClick={() => removeItem(person.id, item.id)}
@@ -571,7 +571,7 @@ export default function App() {
                           className="w-full py-4 border-2 border-dashed border-slate-300 rounded-[1.25rem] text-slate-500 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-all flex items-center justify-center gap-3 group/add"
                         >
                           <Plus size={18} className="group-hover/add:scale-125 transition-transform" />
-                          <span className="text-[11px] font-black uppercase tracking-widest">{t('addItem')}</span>
+                          <span className="text-xs font-black uppercase tracking-widest">{t('addItem')}</span>
                         </button>
                       </>
                     ) : (
@@ -585,7 +585,7 @@ export default function App() {
                           { color: 'black' as const, emoji: '⚫️', label: '100' }
                         ].map((p) => (
                           <div key={p.color} className="flex flex-col items-center gap-2">
-                            <span className="text-[10px] font-black text-slate-600">{p.label}฿</span>
+                            <span className="text-sm font-black text-slate-600">{p.label}฿</span>
                             <button 
                               onClick={() => updatePlateCount(person.id, p.color, 1)}
                               className="w-full aspect-square rounded-2xl bg-white/50 backdrop-blur-md border border-white flex items-center justify-center text-xl hover:bg-white hover:border-indigo-200 hover:shadow-sm active:scale-95 transition-all relative overflow-hidden group shadow-[0_2px_8px_rgba(0,0,0,0.02)]"
@@ -602,7 +602,7 @@ export default function App() {
                               >
                                 <Minus size={10} />
                               </button>
-                              <span className="text-sm font-black text-slate-900 w-4 text-center">{person.plates?.[p.color] || 0}</span>
+                              <span className="text-base font-black text-slate-900 w-4 text-center">{person.plates?.[p.color] || 0}</span>
                             </div>
                           </div>
                         ))}
@@ -612,20 +612,20 @@ export default function App() {
 
                   <div className="pt-6 border-t border-slate-50 flex items-end justify-between">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none block ml-1">{t('individualDiscount')}</label>
+                      <label className="text-xs font-black text-slate-500 uppercase tracking-widest leading-none block ml-1">{t('individualDiscount')}</label>
                       <div className="relative w-32 group/disc">
                         <input 
                           type="number"
                           inputMode="decimal"
                           value={person.individualDiscount || ''}
                           onChange={(e) => updateIndividualDiscount(person.id, Number(e.target.value))}
-                          className="w-full text-sm font-bold glass-input rounded-[1rem] px-4 py-2.5 placeholder:text-slate-500 text-slate-900"
+                          className="w-full text-base font-bold glass-input rounded-[1rem] px-4 py-2.5 placeholder:text-slate-500 text-slate-900"
                           placeholder="0.00"
                         />
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-1">{t('yourTotal')}</p>
+                      <p className="text-xs font-black text-slate-600 uppercase tracking-widest mb-1">{t('yourTotal')}</p>
                       <p className="text-3xl font-black text-indigo-700 tabular-nums tracking-tighter">
                         ฿{breakdown.peopleTotals.find(pt => pt.personId === person.id)?.finalShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
@@ -645,7 +645,7 @@ export default function App() {
                   <div className="p-2 bg-white rounded-xl shadow-sm border border-indigo-50 text-indigo-500">
                     <UserPlus size={20} strokeWidth={2.5} />
                   </div>
-                  <span className="text-[11px] font-black uppercase tracking-[0.2em] text-center">{t('addMember')}</span>
+                  <span className="text-xs font-black uppercase tracking-[0.2em] text-center">{t('addMember')}</span>
                 </button>
 
                 <button 
@@ -662,7 +662,7 @@ export default function App() {
                       <Camera size={20} strokeWidth={2.5} />
                     )}
                   </div>
-                  <span className="text-[11px] font-black uppercase tracking-[0.2em] text-center">{isScanning ? t('scanning') : t('scanReceipt')}</span>
+                  <span className="text-xs font-black uppercase tracking-[0.2em] text-center">{isScanning ? t('scanning') : t('scanReceipt')}</span>
                 </button>
                 <input
                   type="file"
@@ -674,7 +674,7 @@ export default function App() {
               </div>
 
               <div className="flex items-center justify-between bg-white/40 backdrop-blur-md p-4 rounded-[1.25rem] border border-white/50">
-                <label className="text-[11px] sm:text-xs font-bold text-slate-700 select-none cursor-pointer pr-4 leading-relaxed" htmlFor="splitQuantitiesToggle">
+                <label className="text-sm sm:text-base font-bold text-slate-700 select-none cursor-pointer pr-4 leading-relaxed" htmlFor="splitQuantitiesToggle">
                   {t('splitQuantitiesOption')}
                 </label>
                 <button
@@ -697,16 +697,16 @@ export default function App() {
           <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 rounded-full -ml-32 -mb-32 blur-3xl pointer-events-none" />
           
           <div className="flex items-center justify-between relative z-10">
-            <h3 className="text-[11px] font-black uppercase tracking-[0.2em] flex items-center gap-2 text-slate-300">
+            <h3 className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 text-slate-300">
               <ReceiptText size={18} />
               {t('summary')}
             </h3>
-            <div className="px-4 py-1.5 bg-slate-800 rounded-full text-[10px] font-black text-white/80 uppercase tracking-widest border border-slate-700">
+            <div className="px-4 py-1.5 bg-slate-800 rounded-full text-xs font-black text-white/80 uppercase tracking-widest border border-slate-700">
               {people.length} {t('persons')}
             </div>
           </div>
 
-          <div className="space-y-5 text-sm font-semibold relative z-10">
+          <div className="space-y-5 text-base font-semibold relative z-10">
             <div className="flex justify-between items-center text-slate-400">
               <span>{t('subtotal')}</span>
               <span className="text-white">฿{breakdown.subtotal.toLocaleString()}</span>
@@ -737,7 +737,7 @@ export default function App() {
             )}
 
             <div className="pt-6 border-t border-white/10 space-y-4">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">{t('individualTotals')}</h4>
+              <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-300">{t('individualTotals')}</h4>
               <div className="grid grid-cols-1 gap-3">
                 {people.map(p => {
                   const pt = breakdown.peopleTotals.find(total => total.personId === p.id);
@@ -748,9 +748,9 @@ export default function App() {
                         <div className="w-6 h-6 rounded-lg bg-slate-800 flex items-center justify-center text-[9px] font-black text-slate-300 group-hover:text-indigo-400 transition-colors">
                           {p.name.charAt(0)}
                         </div>
-                        <span className="text-sm font-bold text-slate-200 group-hover:text-white transition-colors">{p.name}</span>
+                        <span className="text-base font-bold text-slate-200 group-hover:text-white transition-colors">{p.name}</span>
                       </div>
-                      <span className="text-sm font-black text-white tabular-nums">฿{pt.finalShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="text-base font-black text-white tabular-nums">฿{pt.finalShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   );
                 })}
@@ -759,7 +759,7 @@ export default function App() {
 
             <div className="pt-8 border-t border-white/10 flex justify-between items-end">
               <div>
-                <p className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-1">{t('netTotal')}</p>
+                <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">{t('netTotal')}</p>
                 <div className="text-5xl font-black text-white tracking-tighter tabular-nums leading-none">
                   ฿{breakdown.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
@@ -784,7 +784,7 @@ export default function App() {
       </main>
 
       <div className="text-center pb-8 pt-4">
-        <p className="text-xs font-semibold text-slate-500">
+        <p className="text-sm font-semibold text-slate-500">
           {t('credit')}
         </p>
       </div>
@@ -793,7 +793,7 @@ export default function App() {
       <footer className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 w-full max-w-sm px-4">
         <div className="glass-card rounded-[2rem] p-4 flex items-center justify-between gap-6">
           <div className="pl-4">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('netTotal')}</p>
+            <p className="text-xs font-black text-slate-500 uppercase tracking-widest">{t('netTotal')}</p>
             <p className="text-2xl font-black text-slate-900 tabular-nums tracking-tighter">
               ฿{breakdown.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>

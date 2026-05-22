@@ -10,6 +10,9 @@
 }
 
 @layer base {
+  html, body {
+    @apply overflow-x-hidden;
+  }
   body {
     @apply bg-slate-50 text-slate-900 font-sans antialiased transition-colors duration-300;
     background-color: #f8fafc;
@@ -104,6 +107,12 @@
 
 .vibrant-gradient {
   @apply bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500;
+
+}
+
+.vibrant-gradient-light {
+  @apply bg-gradient-to-br from-indigo-600 via-indigo-500 to-purple-500;
+
 }
 
 .premium-shadow {

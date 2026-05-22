@@ -227,7 +227,7 @@ export default function App() {
   }, [people, settings]);
 
   const copySummary = () => {
-    let text = t('copyTemplateSubtotal');
+    let text = t('copyTemplateSubtotal', { count: people.length });
     people.forEach(p => {
       const share = breakdown.peopleTotals.find(pt => pt.personId === p.id)?.finalShare || 0;
       text += `👤 ${p.name}: ฿${share.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
@@ -322,7 +322,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen pb-40 bg-slate-50/50">
+    <div className="min-h-screen pb-40 bg-slate-50/50 w-full overflow-x-hidden">
       <header className="sticky top-0 z-30 bg-white/50 backdrop-blur-3xl saturate-[1.3] border-b border-white/40 px-6 py-5 shadow-[0_4px_30px_rgba(0,0,0,0.03)]">
         <div className="max-w-xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -422,8 +422,8 @@ export default function App() {
             <h2 className="text-[11px] font-black uppercase tracking-[0.2em]">{t('globalSettings')}</h2>
           </div>
           
-          <div className="flex flex-row items-end gap-3">
-            <div className="flex-[2] min-w-0 space-y-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-4">
+            <div className="flex-[1.5] min-w-0 space-y-3">
               <div className="flex items-center justify-between ml-1">
                 <label className="text-xs font-bold text-slate-600">{t('sharedDiscount')}</label>
                 <div className="flex bg-slate-200/50 p-0.5 rounded-lg shrink-0">
@@ -452,29 +452,31 @@ export default function App() {
               </div>
             </div>
 
-            <button 
-              onClick={() => setSettings({ ...settings, hasServiceCharge: !settings.hasServiceCharge })}
-              className={`flex-1 h-[64px] rounded-[1.25rem] border transition-all flex flex-col items-center justify-center outline-none px-2 ${
-                settings.hasServiceCharge 
-                  ? 'bg-indigo-600 backdrop-blur-md border-indigo-500/50 text-white shadow-[0_8px_16px_rgba(99,102,241,0.2)]' 
-                  : 'glass-input text-slate-600 hover:text-slate-800'
-              }`}
-            >
-              <span className="text-[10px] font-black uppercase leading-tight text-center relative z-10">SVC 10%</span>
-              <div className={`w-1.5 h-1.5 rounded-full mt-1.5 transition-all relative z-10 ${settings.hasServiceCharge ? 'bg-white scale-125' : 'bg-slate-400'}`} />
-            </button>
-            
-            <button 
-              onClick={() => setSettings({ ...settings, hasVat: !settings.hasVat })}
-              className={`flex-1 h-[64px] rounded-[1.25rem] border transition-all flex flex-col items-center justify-center outline-none px-2 ${
-                settings.hasVat 
-                  ? 'bg-indigo-600 backdrop-blur-md border-indigo-500/50 text-white shadow-[0_8px_16px_rgba(99,102,241,0.2)]' 
-                  : 'glass-input text-slate-600 hover:text-slate-800'
-              }`}
-            >
-              <span className="text-[10px] font-black uppercase leading-tight text-center relative z-10">VAT 7%</span>
-              <div className={`w-1.5 h-1.5 rounded-full mt-1.5 transition-all relative z-10 ${settings.hasVat ? 'bg-white scale-125' : 'bg-slate-400'}`} />
-            </button>
+            <div className="flex-1 flex gap-3">
+              <button 
+                onClick={() => setSettings({ ...settings, hasServiceCharge: !settings.hasServiceCharge })}
+                className={`flex-1 h-[56px] rounded-[1.25rem] border transition-all flex flex-col items-center justify-center outline-none px-2 ${
+                  settings.hasServiceCharge 
+                    ? 'vibrant-gradient-light border-transparent text-white shadow-[0_8px_16px_rgba(99,102,241,0.2)]' 
+                    : 'glass-input text-slate-600 hover:text-slate-800'
+                }`}
+              >
+                <span className="text-[10px] font-black uppercase leading-tight text-center relative z-10">SVC 10%</span>
+                <div className={`w-1.5 h-1.5 rounded-full mt-1.5 transition-all relative z-10 ${settings.hasServiceCharge ? 'bg-white scale-125' : 'bg-slate-400'}`} />
+              </button>
+              
+              <button 
+                onClick={() => setSettings({ ...settings, hasVat: !settings.hasVat })}
+                className={`flex-1 h-[56px] rounded-[1.25rem] border transition-all flex flex-col items-center justify-center outline-none px-2 ${
+                  settings.hasVat 
+                    ? 'vibrant-gradient-light border-transparent text-white shadow-[0_8px_16px_rgba(99,102,241,0.2)]' 
+                    : 'glass-input text-slate-600 hover:text-slate-800'
+                }`}
+              >
+                <span className="text-[10px] font-black uppercase leading-tight text-center relative z-10">VAT 7%</span>
+                <div className={`w-1.5 h-1.5 rounded-full mt-1.5 transition-all relative z-10 ${settings.hasVat ? 'bg-white scale-125' : 'bg-slate-400'}`} />
+              </button>
+            </div>
           </div>
         </section>
 

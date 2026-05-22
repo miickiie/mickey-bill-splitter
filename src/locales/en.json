@@ -12,7 +12,7 @@
     "globalSettings": "Global Settings",
     "sharedDiscount": "Shared Discount (฿)",
     "members": "Members",
-    "personDefaultName": "Member A",
+    "personDefaultName": "Member 1",
     "newMemberDefaultName": "New Member {{count}}",
     "memberNamePlaceholder": "Member name...",
     "itemNamePlaceholder": "Item name...",
@@ -32,7 +32,7 @@
     "scanning": "Scanning...",
     "scanFailed": "Failed to extract items from receipt. Please try again.",
     "splitQuantitiesOption": "Split identical items / person (3 x 1 item = 3 persons)",
-    "copyTemplateSubtotal": "🧾 Summary\n\n",
+    "copyTemplateSubtotal": "🧾 Summary for {{count}} persons\n\n",
     "copyTemplateTotal": "\n💰 Total: ฿{{total}}\n",
     "credit": "Vibe with ❤️ by Miickiie"
   }

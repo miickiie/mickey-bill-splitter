@@ -18,6 +18,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Person, Item, BillSettings, CalculationBreakdown, Plates } from './types';
 import { scanReceipt } from './services/receiptScanner';
+import confetti from 'canvas-confetti';
 
 const PLATE_PRICES: Record<keyof Plates, number> = {
   white: 30,
@@ -258,6 +259,35 @@ export default function App() {
     setPeople([{ id: '1', name: t('personDefaultName'), items: [], individualDiscount: 0, plates: { ...INITIAL_PLATES } }]);
     setSettings({ sharedDiscount: 0, sharedDiscountType: 'amount', hasServiceCharge: false, hasVat: false, isSushiroMode: false });
     setShowResetConfirm(false);
+  };
+
+  const triggerSpectacularEffect = () => {
+    vibrate([30, 50, 30, 50, 30, 50, 30]);
+    const duration = 3 * 1000;
+    const end = Date.now() + duration;
+
+    (function frame() {
+      // launch a few confetti from the left edge
+      confetti({
+        particleCount: 7,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0 },
+        colors: ['#a855f7', '#6366f1', '#ec4899']
+      });
+      // and launch a few from the right edge
+      confetti({
+        particleCount: 7,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1 },
+        colors: ['#a855f7', '#6366f1', '#ec4899']
+      });
+
+      if (Date.now() < end) {
+        requestAnimationFrame(frame);
+      }
+    }());
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -802,9 +832,12 @@ export default function App() {
       </main>
 
       <div className="text-center pb-8 pt-4">
-        <p className="text-sm font-semibold text-slate-500">
+        <button 
+          onClick={triggerSpectacularEffect}
+          className="text-sm font-semibold text-slate-500 hover:text-indigo-500 transition-colors cursor-pointer outline-none active:scale-95"
+        >
           {t('credit')}
-        </p>
+        </button>
       </div>
 
       {/* Modern Sticky Footer */}

@@ -35,6 +35,14 @@ const INITIAL_PLATES: Plates = {
   black: 0
 };
 
+const vibrate = (pattern: number | number[]) => {
+  if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+    try {
+      navigator.vibrate(pattern);
+    } catch(e) {}
+  }
+};
+
 export default function App() {
   const { t, i18n } = useTranslation();
   
@@ -90,6 +98,7 @@ export default function App() {
   }, [isDarkMode]);
 
   const addPerson = () => {
+    vibrate(10);
     const newPerson: Person = {
       id: crypto.randomUUID(),
       name: t('newMemberDefaultName', { count: people.length + 1 }),
@@ -102,6 +111,7 @@ export default function App() {
 
   const removePerson = (id: string) => {
     if (people.length > 1) {
+      vibrate([20, 50, 20]);
       setPeople(people.filter(p => p.id !== id));
     }
   };
@@ -111,6 +121,7 @@ export default function App() {
   };
 
   const addItem = (personId: string) => {
+    vibrate(10);
     setPeople(people.map(p => {
       if (p.id === personId) {
         return {
@@ -135,6 +146,7 @@ export default function App() {
   };
 
   const removeItem = (personId: string, itemId: string) => {
+    vibrate([20, 50, 20]);
     setPeople(people.map(p => {
       if (p.id === personId) {
         return {
@@ -147,6 +159,7 @@ export default function App() {
   };
 
   const updatePlateCount = (personId: string, color: keyof Plates, delta: number) => {
+    vibrate(10);
     setPeople(people.map(p => {
       if (p.id === personId) {
         const plates = p.plates || { ...INITIAL_PLATES };
@@ -227,6 +240,7 @@ export default function App() {
   }, [people, settings]);
 
   const copySummary = () => {
+    vibrate([10, 30, 10]);
     let text = t('copyTemplateSubtotal', { count: people.length });
     people.forEach(p => {
       const share = breakdown.peopleTotals.find(pt => pt.personId === p.id)?.finalShare || 0;
@@ -240,6 +254,7 @@ export default function App() {
   };
 
   const resetAll = () => {
+    vibrate([30, 50, 30]);
     setPeople([{ id: '1', name: t('personDefaultName'), items: [], individualDiscount: 0, plates: { ...INITIAL_PLATES } }]);
     setSettings({ sharedDiscount: 0, sharedDiscountType: 'amount', hasServiceCharge: false, hasVat: false, isSushiroMode: false });
     setShowResetConfirm(false);
@@ -301,11 +316,13 @@ export default function App() {
             // Make sure not to be in Sushiro mode
             setSettings(prev => ({ ...prev, isSushiroMode: false }));
             setPeople([...currentPeople, ...newPeople]);
+            vibrate([10, 30, 20]);
           }
         } catch (err) {
           console.error(err);
           const errorMessage = err instanceof Error ? err.message : String(err);
           alert(`${t('scanFailed')}\n\nDetails: ${errorMessage}`);
+          vibrate([30, 50, 30]);
         } finally {
           setIsScanning(false);
           // Reset file input
@@ -317,6 +334,7 @@ export default function App() {
     } catch (err) {
       console.error(err);
       alert(t('scanFailed'));
+      vibrate([30, 50, 30]);
       setIsScanning(false);
     }
   };
@@ -327,7 +345,7 @@ export default function App() {
         <div className="max-w-xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setIsDarkMode(!isDarkMode)}
+              onClick={() => { vibrate(10); setIsDarkMode(!isDarkMode); }}
               className="w-12 h-12 shrink-0 vibrant-gradient rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-200 hover:scale-105 active:scale-95 transition-all outline-none"
               title="Toggle Dark Mode"
             >
@@ -341,7 +359,7 @@ export default function App() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => i18n.changeLanguage(i18n.language === 'th' ? 'en' : 'th')}
+              onClick={() => { vibrate(10); i18n.changeLanguage(i18n.language === 'th' ? 'en' : 'th'); }}
               className="w-11 h-11 flex items-center justify-center shrink-0 rounded-xl border border-slate-200 bg-white/80 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors text-sm font-black uppercase tracking-widest shadow-sm"
               title="Change Language"
             >
@@ -350,7 +368,7 @@ export default function App() {
             <motion.button 
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              onClick={() => setSettings({ ...settings, isSushiroMode: !settings.isSushiroMode })}
+              onClick={() => { vibrate(10); setSettings({ ...settings, isSushiroMode: !settings.isSushiroMode }); }}
               className={`w-11 h-11 flex items-center justify-center shrink-0 rounded-xl border transition-all text-xl shadow-sm ${
                 settings.isSushiroMode 
                   ? 'bg-orange-50 border-orange-200 text-orange-500' 
@@ -363,7 +381,7 @@ export default function App() {
             <motion.button 
               whileHover={{ scale: 1.1, rotate: 5 }}
               whileTap={{ scale: 0.9 }}
-              onClick={() => setShowResetConfirm(true)}
+              onClick={() => { vibrate(10); setShowResetConfirm(true); }}
               className="w-11 h-11 flex items-center justify-center shrink-0 text-slate-500 hover:text-rose-600 shadow-sm transition-colors bg-white/80 rounded-xl border border-slate-200"
               title={t('clearAll')}
             >
@@ -397,7 +415,7 @@ export default function App() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <button 
-                  onClick={() => setShowResetConfirm(false)}
+                  onClick={() => { vibrate(10); setShowResetConfirm(false); }}
                   className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-base transition-all"
                 >
                   {t('cancel')}
@@ -428,11 +446,11 @@ export default function App() {
                 <label className="text-sm font-bold text-slate-600">{t('sharedDiscount')}</label>
                 <div className="flex bg-slate-200/50 p-0.5 rounded-lg shrink-0">
                   <button 
-                    onClick={() => setSettings({ ...settings, sharedDiscountType: 'amount' })}
+                    onClick={() => { vibrate(10); setSettings({ ...settings, sharedDiscountType: 'amount' }); }}
                     className={`px-3 py-1 rounded-md text-sm font-black transition-all ${settings.sharedDiscountType === 'amount' || !settings.sharedDiscountType ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                   >฿</button>
                   <button 
-                    onClick={() => setSettings({ ...settings, sharedDiscountType: 'percentage' })}
+                    onClick={() => { vibrate(10); setSettings({ ...settings, sharedDiscountType: 'percentage' }); }}
                     className={`px-3 py-1 rounded-md text-sm font-black transition-all ${settings.sharedDiscountType === 'percentage' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                   >%</button>
                 </div>
@@ -454,7 +472,7 @@ export default function App() {
 
             <div className="flex-1 flex gap-3">
               <button 
-                onClick={() => setSettings({ ...settings, hasServiceCharge: !settings.hasServiceCharge })}
+                onClick={() => { vibrate(10); setSettings({ ...settings, hasServiceCharge: !settings.hasServiceCharge }); }}
                 className={`flex-1 h-[56px] rounded-[1.25rem] border transition-all flex flex-col items-center justify-center outline-none px-2 ${
                   settings.hasServiceCharge 
                     ? 'vibrant-gradient-light border-transparent text-white shadow-[0_8px_16px_rgba(99,102,241,0.2)]' 
@@ -466,7 +484,7 @@ export default function App() {
               </button>
               
               <button 
-                onClick={() => setSettings({ ...settings, hasVat: !settings.hasVat })}
+                onClick={() => { vibrate(10); setSettings({ ...settings, hasVat: !settings.hasVat }); }}
                 className={`flex-1 h-[56px] rounded-[1.25rem] border transition-all flex flex-col items-center justify-center outline-none px-2 ${
                   settings.hasVat 
                     ? 'vibrant-gradient-light border-transparent text-white shadow-[0_8px_16px_rgba(99,102,241,0.2)]' 
@@ -649,7 +667,7 @@ export default function App() {
                 </button>
 
                 <button 
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => { vibrate(10); fileInputRef.current?.click(); }}
                   disabled={isScanning}
                   className="w-full py-4 rounded-[2rem] bg-indigo-50/50 border-2 border-dashed border-indigo-200 text-indigo-600 hover:bg-indigo-100 hover:border-indigo-300 hover:text-indigo-700 transition-all flex flex-col items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -679,7 +697,7 @@ export default function App() {
                 </label>
                 <button
                   id="splitQuantitiesToggle"
-                  onClick={() => setSettings({ ...settings, splitScanItemsByQuantity: settings.splitScanItemsByQuantity === false ? true : false })}
+                  onClick={() => { vibrate(10); setSettings({ ...settings, splitScanItemsByQuantity: settings.splitScanItemsByQuantity === false ? true : false }); }}
                   className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${settings.splitScanItemsByQuantity !== false ? 'bg-indigo-600' : 'bg-slate-200'}`}
                 >
                   <span

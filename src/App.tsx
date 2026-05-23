@@ -37,6 +37,20 @@ const INITIAL_PLATES: Plates = {
 };
 
 const vibrate = (pattern: number | number[]) => {
+  // Check for Telegram WebApp HapticFeedback as fallback for iOS
+  if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.HapticFeedback) {
+    try {
+      const HapticFeedback = (window as any).Telegram.WebApp.HapticFeedback;
+      if (Array.isArray(pattern) && pattern.length > 2) {
+        HapticFeedback.notificationOccurred('success');
+      } else {
+        HapticFeedback.impactOccurred('light');
+      }
+      return;
+    } catch (e) {}
+  }
+
+  // Standard Web Vibration API (Not supported by Apple on iOS Safari)
   if (typeof window !== 'undefined' && 'vibrate' in navigator) {
     try {
       navigator.vibrate(pattern);

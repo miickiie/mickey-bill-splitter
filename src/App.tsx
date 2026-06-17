@@ -341,8 +341,44 @@ export default function App() {
       return;
     }
     try {
+      // Modern Safari & standard-compliant way to write async content to clipboard:
+      // Passing a Promise to ClipboardItem resolves the iOS Safari permission block.
+      const imagePromise = new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error('Canvas toBlob returned null'));
+          }
+        }, 'image/png');
+      });
+
+      const item = new ClipboardItem({ 'image/png': imagePromise });
+      
+      navigator.clipboard.write([item])
+        .then(() => {
+          setCopiedQRId(memberId);
+          setTimeout(() => setCopiedQRId(null), 2000);
+        })
+        .catch((err) => {
+          console.error("Clipboard copy failed with Promise:", err);
+          // Fallback
+          fallbackCopyQR(canvas, memberId, name);
+        });
+    } catch (e) {
+      console.error("ClipboardItem promise construction not supported:", e);
+      // Fallback
+      fallbackCopyQR(canvas, memberId, name);
+    }
+  };
+
+  const fallbackCopyQR = (canvas: HTMLCanvasElement, memberId: string, name: string) => {
+    try {
       canvas.toBlob((blob) => {
-        if (!blob) return;
+        if (!blob) {
+          downloadQRImage(memberId, name);
+          return;
+        }
         const item = new ClipboardItem({ 'image/png': blob });
         navigator.clipboard.write([item])
           .then(() => {
@@ -350,14 +386,12 @@ export default function App() {
             setTimeout(() => setCopiedQRId(null), 2000);
           })
           .catch((err) => {
-            console.error("Clipboard copy failed:", err);
-            // Fallback download
+            console.error("Fallback Clipboard copy failed:", err);
             downloadQRImage(memberId, name);
           });
       }, 'image/png');
-    } catch (e) {
-      console.error(e);
-      // Fallback
+    } catch (err) {
+      console.error(err);
       downloadQRImage(memberId, name);
     }
   };

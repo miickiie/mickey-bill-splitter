@@ -34,6 +34,17 @@
     "splitQuantitiesOption": "Split identical items / person (3 x 1 item = 3 persons)",
     "copyTemplateSubtotal": "🧾 Summary for {{count}} persons\n\n",
     "copyTemplateTotal": "\n💰 Total: ฿{{total}}\n",
-    "credit": "Vibe with ❤️ by Miickiie"
+    "credit": "Vibe with ❤️ by Miickiie",
+    "qrMode": "PromptPay QR",
+    "promptPayIdLabel": "PromptPay Phone Number or National ID",
+    "promptPayIdPlaceholder": "e.g. 0812345678 or 110xxxxxxxxx",
+    "copiedQR": "QR Image Copied!",
+    "copyQRButton": "Copy QR Image",
+    "downloadQR": "Download QR Image",
+    "backToCalculator": "Back to Calculator",
+    "selectPersonToPay": "Select member to display their QR Code",
+    "qrFor": "PromptPay QR for {{name}}",
+    "enterPromptPayFirst": "Please enter a PromptPay Phone/ID first",
+    "invalidAmount": "Amount is ฿0.00"
   }
 }

@@ -34,6 +34,17 @@
     "splitQuantitiesOption": "แยกเมนูซ้ำให้แต่ละคน (3 x เมนู = 3 คน)",
     "copyTemplateSubtotal": "🧾 สรุปยอด จำนวน {{count}} คน\n\n",
     "copyTemplateTotal": "\n💰 รวม: ฿{{total}}\n",
-    "credit": "Vibe with ❤️ by Miickiie"
+    "credit": "Vibe with ❤️ by Miickiie",
+    "qrMode": "พร้อมเพย์ QR",
+    "promptPayIdLabel": "เบอร์โทรศัพท์ หรือ เลขบัตรประชาชน พร้อมเพย์",
+    "promptPayIdPlaceholder": "เช่น 0812345678 หรือ 110xxxxxxxxx",
+    "copiedQR": "คัดลอกรูปภาพสำเร็จ!",
+    "copyQRButton": "คัดลอกรูปภาพ QR",
+    "downloadQR": "ดาวน์โหลดภาพ QR",
+    "backToCalculator": "กลับหน้าหลัก",
+    "selectPersonToPay": "เลือกสมาชิกเพื่อแสดง QR Code",
+    "qrFor": "QR พร้อมเพย์ของ {{name}}",
+    "enterPromptPayFirst": "กรุณาใส่พร้อมเพย์",
+    "invalidAmount": "ยอดเงินเป็น 0 บาท"
   }
 }

@@ -226,6 +226,8 @@ Remember that this key is still bundled into the static frontend build. Use a re
 |-- metadata.json                  # App metadata
 |-- package.json                   # npm scripts and dependencies
 |-- package-lock.json              # Locked npm dependency tree
+|-- public
+|   `-- favicon.svg                # Browser tab icon
 |-- src
 |   |-- App.tsx                    # Main UI, state, calculations, QR workflow
 |   |-- i18n.ts                    # Thai/English translation setup

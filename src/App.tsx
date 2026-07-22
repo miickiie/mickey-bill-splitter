@@ -675,7 +675,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen pb-40 pb-safe bg-slate-50/50 w-full overflow-x-hidden">
+    <div className="min-h-screen main-safe-padding-bottom bg-slate-50/50 w-full overflow-x-hidden">
       <header className="sticky top-0 z-30 bg-white/50 backdrop-blur-3xl saturate-[1.3] border-b border-white/40 px-6 header-safe-padding shadow-[0_4px_30px_rgba(0,0,0,0.03)]">
         <div className="max-w-xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -1532,7 +1532,7 @@ export default function App() {
       </div>
 
       {/* Modern Sticky Footer */}
-      <footer className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 w-full max-w-sm px-4">
+      <footer className="fixed footer-safe-bottom left-1/2 -translate-x-1/2 z-40 w-full max-w-sm px-4">
         <div className="glass-card rounded-[2rem] p-4 flex items-center justify-between gap-4">
           <div className="pl-2">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('netTotal')}</p>

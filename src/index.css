@@ -143,3 +143,9 @@
   padding-top: calc(env(safe-area-inset-top, 0px) + 1.25rem);
   padding-bottom: 1.25rem;
 }
+.main-safe-padding-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 11rem);
+}
+.footer-safe-bottom {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 2rem);
+}

@@ -675,8 +675,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen pb-40 bg-slate-50/50 w-full overflow-x-hidden">
-      <header className="sticky top-0 z-30 bg-white/50 backdrop-blur-3xl saturate-[1.3] border-b border-white/40 px-6 py-5 shadow-[0_4px_30px_rgba(0,0,0,0.03)]">
+    <div className="min-h-screen pb-40 pb-safe bg-slate-50/50 w-full overflow-x-hidden">
+      <header className="sticky top-0 z-30 bg-white/50 backdrop-blur-3xl saturate-[1.3] border-b border-white/40 px-6 header-safe-padding shadow-[0_4px_30px_rgba(0,0,0,0.03)]">
         <div className="max-w-xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button

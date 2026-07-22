@@ -131,3 +131,15 @@
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
+
+/* Safe area inset utilities for iOS / PWA standalone mode */
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.header-safe-padding {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 1.25rem);
+  padding-bottom: 1.25rem;
+}

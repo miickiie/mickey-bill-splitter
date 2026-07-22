@@ -1,10 +1,13 @@
-const CACHE_NAME = 'bill-splitter-pwa-v1';
+const CACHE_NAME = 'bill-splitter-pwa-v2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './manifest.json',
+  './favicon-32.png',
+  './favicon.svg',
   './icon-192.png',
   './icon-512.png',
+  './icon-maskable-512.png',
   './apple-touch-icon.png'
 ];
 
@@ -21,7 +24,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
+          if (cache.startsWith('bill-splitter-pwa-') && cache !== CACHE_NAME) {
             return caches.delete(cache);
           }
         })

@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
+    "icons": "node create-pwa-icons.js",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

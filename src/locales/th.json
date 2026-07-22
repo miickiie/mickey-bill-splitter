@@ -56,6 +56,9 @@
     "discountTimingBefore": "ก่อนคิด SC & VAT (ปกติ)",
     "discountTimingAfter": "หลังคิด SC & VAT (คูปอง/ท้ายบิล)",
     "installApp": "ติดตั้งแอป",
-    "installAppDesc": "ติดตั้งแอปไว้บนหน้าจอหลักเพื่อเข้าถึงได้สะดวก"
+    "installAppDesc": "ติดตั้งแอปไว้บนหน้าจอหลักเพื่อเข้าถึงได้สะดวก",
+    "discount": "ส่วนลด",
+    "serviceCharge": "Service Charge",
+    "vat": "VAT"
   }
 }

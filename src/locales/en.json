@@ -56,6 +56,9 @@
     "discountTimingBefore": "Before SC & VAT (Standard)",
     "discountTimingAfter": "After SC & VAT (Vouchers)",
     "installApp": "Install App",
-    "installAppDesc": "Install app on your home screen for quick access"
+    "installAppDesc": "Install app on your home screen for quick access",
+    "discount": "Discount",
+    "serviceCharge": "Service Charge",
+    "vat": "VAT"
   }
 }

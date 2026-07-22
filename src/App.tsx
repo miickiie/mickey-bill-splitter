@@ -18,7 +18,8 @@ import {
   Phone,
   ArrowLeft,
   Download,
-  UtensilsCrossed
+  UtensilsCrossed,
+  SlidersHorizontal
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Person, Item, BillSettings, CalculationBreakdown, Plates } from './types';
@@ -102,6 +103,7 @@ export default function App() {
   const [selectedPersonForQR, setSelectedPersonForQR] = useState<string>('1');
   const [copiedQRId, setCopiedQRId] = useState<string | null>(null);
   const [focusTargetItemId, setFocusTargetItemId] = useState<string | null>(null);
+  const [expandedItemOptionsId, setExpandedItemOptionsId] = useState<string | null>(null);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   // PWA install prompt listener
@@ -275,133 +277,168 @@ export default function App() {
   };
 
   const breakdown = useMemo((): CalculationBreakdown => {
-    const sharedItemsTotal = sharedItems.reduce((acc, item) => acc + (item.price || 0), 0);
     const memberCount = people.length || 1;
-    const sharedItemPerPerson = sharedItemsTotal / memberCount;
+    const isAfterDiscount = settings.discountTiming === 'after';
 
-    let subtotal = sharedItemsTotal;
+    let globalSubtotal = 0;
+    let globalDiscountableSubtotal = 0;
+    let globalServiceChargeTotal = 0;
+    let globalVatTotal = 0;
+    let globalGrandTotal = 0;
     let totalIndividualDiscounts = 0;
-    
-    const peopleBases = people.map(p => {
-      let individualItemsTotal = p.items.reduce((acc, item) => acc + (item.price || 0), 0);
+
+    // Helper to get effective items for a person
+    const getEffectiveItems = (person: Person) => {
+      const items: { price: number, noDiscount: boolean, noSC: boolean, noVAT: boolean }[] = [];
       
-      // Add plates total if in Sushiro mode
-      if (settings.isSushiroMode && p.plates) {
-        individualItemsTotal += (p.plates.white * PLATE_PRICES.white);
-        individualItemsTotal += (p.plates.red * PLATE_PRICES.red);
-        individualItemsTotal += (p.plates.silver * PLATE_PRICES.silver);
-        individualItemsTotal += (p.plates.gold * PLATE_PRICES.gold);
-        individualItemsTotal += (p.plates.black * PLATE_PRICES.black);
+      // Individual items
+      person.items.forEach(item => {
+        items.push({
+          price: item.price || 0,
+          noDiscount: !!item.excludeDiscount,
+          noSC: !!item.excludeServiceCharge,
+          noVAT: !!item.excludeVat
+        });
+      });
+
+      // Sushiro Plates
+      if (settings.isSushiroMode && person.plates) {
+        let platesTotal = 0;
+        platesTotal += (person.plates.white * PLATE_PRICES.white);
+        platesTotal += (person.plates.red * PLATE_PRICES.red);
+        platesTotal += (person.plates.silver * PLATE_PRICES.silver);
+        platesTotal += (person.plates.gold * PLATE_PRICES.gold);
+        platesTotal += (person.plates.black * PLATE_PRICES.black);
+        if (platesTotal > 0) {
+          items.push({ price: platesTotal, noDiscount: false, noSC: false, noVAT: false });
+        }
       }
 
-      const itemsTotal = individualItemsTotal + sharedItemPerPerson;
-      subtotal += individualItemsTotal;
+      // Shared items
+      sharedItems.forEach(sItem => {
+        items.push({
+          price: (sItem.price || 0) / memberCount,
+          noDiscount: !!sItem.excludeDiscount,
+          noSC: !!sItem.excludeServiceCharge,
+          noVAT: !!sItem.excludeVat
+        });
+      });
+
+      return items;
+    };
+
+    // 1. Calculate subtotals
+    people.forEach(p => {
+      const items = getEffectiveItems(p);
+      items.forEach(item => {
+        globalSubtotal += item.price;
+        if (!item.noDiscount) {
+          globalDiscountableSubtotal += item.price;
+        }
+      });
       totalIndividualDiscounts += (p.individualDiscount || 0);
-      
-      return { 
-        personId: p.id, 
-        individualDiscount: p.individualDiscount || 0,
-        itemsTotal,
-        individualItemsTotal,
-        sharedItemsShare: sharedItemPerPerson 
+    });
+
+    // 2. Calculate shared discount
+    const totalSharedDiscountValue = settings.sharedDiscountType === 'percentage'
+      ? globalDiscountableSubtotal * ((settings.sharedDiscount || 0) / 100)
+      : (settings.sharedDiscount || 0);
+    
+    const sharedDiscountPerPerson = totalSharedDiscountValue / memberCount;
+
+    // 3. Process each person
+    const peopleTotals = people.map(p => {
+      const items = getEffectiveItems(p);
+      const D_p = (p.individualDiscount || 0) + sharedDiscountPerPerson;
+
+      let personItemsTotal = 0;
+      let personIndividualItemsTotal = 0;
+      let personSharedItemsShare = 0;
+
+      // For reporting
+      p.items.forEach(item => personIndividualItemsTotal += (item.price || 0));
+      if (settings.isSushiroMode && p.plates) {
+        personIndividualItemsTotal += (p.plates.white * PLATE_PRICES.white);
+        personIndividualItemsTotal += (p.plates.red * PLATE_PRICES.red);
+        personIndividualItemsTotal += (p.plates.silver * PLATE_PRICES.silver);
+        personIndividualItemsTotal += (p.plates.gold * PLATE_PRICES.gold);
+        personIndividualItemsTotal += (p.plates.black * PLATE_PRICES.black);
+      }
+      sharedItems.forEach(sItem => personSharedItemsShare += (sItem.price || 0) / memberCount);
+      personItemsTotal = personIndividualItemsTotal + personSharedItemsShare;
+
+      let finalShare = 0;
+      let personSC = 0;
+      let personVAT = 0;
+
+      if (isAfterDiscount) {
+        let personGross = 0;
+        let nonDiscountableGross = 0;
+
+        items.forEach(item => {
+          const itemSC = settings.hasServiceCharge && !item.noSC ? item.price * 0.10 : 0;
+          const itemVAT = settings.hasVat && !item.noVAT ? (item.price + itemSC) * 0.07 : 0;
+          const itemGross = item.price + itemSC + itemVAT;
+          
+          personGross += itemGross;
+          personSC += itemSC;
+          personVAT += itemVAT;
+          
+          if (item.noDiscount) {
+            nonDiscountableGross += itemGross;
+          }
+        });
+
+        finalShare = Math.max(nonDiscountableGross, personGross - D_p);
+      } else {
+        let personDiscountableTotal = 0;
+        items.forEach(item => {
+          if (!item.noDiscount) personDiscountableTotal += item.price;
+        });
+
+        const discountRatio = personDiscountableTotal > 0 
+          ? Math.max(0, personDiscountableTotal - D_p) / personDiscountableTotal 
+          : 1;
+
+        items.forEach(item => {
+          const afterDiscountPrice = item.noDiscount ? item.price : item.price * discountRatio;
+          const itemSC = settings.hasServiceCharge && !item.noSC ? afterDiscountPrice * 0.10 : 0;
+          const itemVAT = settings.hasVat && !item.noVAT ? (afterDiscountPrice + itemSC) * 0.07 : 0;
+          
+          finalShare += afterDiscountPrice + itemSC + itemVAT;
+          personSC += itemSC;
+          personVAT += itemVAT;
+        });
+      }
+
+      globalServiceChargeTotal += personSC;
+      globalVatTotal += personVAT;
+      globalGrandTotal += finalShare;
+
+      return {
+        personId: p.id,
+        itemsTotal: personItemsTotal,
+        individualItemsTotal: personIndividualItemsTotal,
+        sharedItemsShare: personSharedItemsShare,
+        finalShare
       };
     });
 
-    const isAfterDiscount = settings.discountTiming === 'after';
+    const sharedItemsTotal = sharedItems.reduce((acc, item) => acc + (item.price || 0), 0);
+    const sharedItemPerPerson = sharedItemsTotal / memberCount;
 
-    if (isAfterDiscount) {
-      // Apply discount AFTER Service Charge & VAT
-      const serviceChargeTotal = settings.hasServiceCharge ? subtotal * 0.10 : 0;
-      const vatBase = subtotal + serviceChargeTotal;
-      const vatTotal = settings.hasVat ? vatBase * 0.07 : 0;
-      const grossGrandTotal = vatBase + vatTotal;
-
-      const grossMultiplier = subtotal > 0 ? grossGrandTotal / subtotal : 0;
-
-      const totalSharedDiscountValue = settings.sharedDiscountType === 'percentage'
-        ? grossGrandTotal * ((settings.sharedDiscount || 0) / 100)
-        : (settings.sharedDiscount || 0);
-
-      const sharedDiscountPerPerson = totalSharedDiscountValue / memberCount;
-
-      const peopleTotals = peopleBases.map(pb => {
-        const grossPersonShare = pb.itemsTotal * grossMultiplier;
-        const afterIndividual = Math.max(0, grossPersonShare - pb.individualDiscount);
-        const finalShare = Math.max(0, afterIndividual - sharedDiscountPerPerson);
-
-        return {
-          personId: pb.personId,
-          itemsTotal: pb.itemsTotal,
-          individualItemsTotal: pb.individualItemsTotal,
-          sharedItemsShare: pb.sharedItemsShare,
-          finalShare
-        };
-      });
-
-      const grandTotal = peopleTotals.reduce((acc, pt) => acc + pt.finalShare, 0);
-
-      return {
-        subtotal,
-        sharedItemsTotal,
-        sharedItemPerPerson,
-        totalIndividualDiscounts,
-        sharedDiscountPerPerson,
-        totalSharedDiscount: totalSharedDiscountValue,
-        serviceChargeTotal,
-        vatTotal,
-        grandTotal,
-        peopleTotals
-      };
-    } else {
-      // DEFAULT: Apply discount BEFORE Service Charge & VAT
-      const basesWithDiscount = peopleBases.map(pb => {
-        const personBaseAfterIndividual = Math.max(0, pb.itemsTotal - pb.individualDiscount);
-        return {
-          ...pb,
-          personBaseAfterIndividual
-        };
-      });
-
-      const totalSharedDiscountValue = settings.sharedDiscountType === 'percentage'
-        ? subtotal * ((settings.sharedDiscount || 0) / 100)
-        : (settings.sharedDiscount || 0);
-
-      const sharedDiscountPerPerson = totalSharedDiscountValue / memberCount;
-
-      const finalBases = basesWithDiscount.map(pb => {
-        const baseAfterShared = Math.max(0, pb.personBaseAfterIndividual - sharedDiscountPerPerson);
-        return { ...pb, baseAfterShared };
-      });
-
-      const totalBase = finalBases.reduce((acc, p) => acc + p.baseAfterShared, 0);
-      const serviceChargeTotal = settings.hasServiceCharge ? totalBase * 0.10 : 0;
-      const vatBase = totalBase + serviceChargeTotal;
-      const vatTotal = settings.hasVat ? vatBase * 0.07 : 0;
-      const grandTotal = vatBase + vatTotal;
-
-      const multiplier = totalBase > 0 ? grandTotal / totalBase : 0;
-
-      const peopleTotals = finalBases.map(fb => ({
-        personId: fb.personId,
-        itemsTotal: fb.itemsTotal,
-        individualItemsTotal: fb.individualItemsTotal,
-        sharedItemsShare: fb.sharedItemsShare,
-        finalShare: fb.baseAfterShared * multiplier
-      }));
-
-      return {
-        subtotal,
-        sharedItemsTotal,
-        sharedItemPerPerson,
-        totalIndividualDiscounts,
-        sharedDiscountPerPerson,
-        totalSharedDiscount: totalSharedDiscountValue,
-        serviceChargeTotal,
-        vatTotal,
-        grandTotal,
-        peopleTotals
-      };
-    }
+    return {
+      subtotal: globalSubtotal,
+      sharedItemsTotal,
+      sharedItemPerPerson,
+      totalIndividualDiscounts,
+      sharedDiscountPerPerson,
+      totalSharedDiscount: totalSharedDiscountValue,
+      serviceChargeTotal: globalServiceChargeTotal,
+      vatTotal: globalVatTotal,
+      grandTotal: globalGrandTotal,
+      peopleTotals
+    };
   }, [people, sharedItems, settings]);
 
   const selectedMember = useMemo(() => {
@@ -879,38 +916,82 @@ export default function App() {
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="flex items-center gap-2"
+                  className="flex flex-col gap-2"
                 >
-                  <input 
-                    type="text"
-                    value={item.name}
-                    onChange={(e) => updateSharedItem(item.id, { name: e.target.value })}
-                    className="flex-1 min-w-0 text-base font-semibold glass-input rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500 text-slate-900 placeholder:text-slate-400"
-                    placeholder={t('sharedItemNamePlaceholder')}
-                  />
-                  <div className="relative shrink-0">
+                  <div className="flex items-center gap-2 w-full">
                     <input 
-                      type="number"
-                      inputMode="decimal"
-                      value={item.price || ''}
-                      onChange={(e) => updateSharedItem(item.id, { price: Number(e.target.value) })}
-                      className="w-20 sm:w-24 text-base font-extrabold glass-input rounded-xl px-2 sm:px-3 py-2 focus:ring-2 focus:ring-indigo-500 text-right text-slate-900 focus:scale-[1.03] transition-transform"
-                      placeholder="0"
-                      ref={(el) => {
-                        if (el && focusTargetItemId === item.id) {
-                          el.focus();
-                          setFocusTargetItemId(null);
-                        }
-                      }}
+                      type="text"
+                      value={item.name}
+                      onChange={(e) => updateSharedItem(item.id, { name: e.target.value })}
+                      className="flex-1 min-w-0 text-base font-semibold glass-input rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500 text-slate-900 placeholder:text-slate-400"
+                      placeholder={t('sharedItemNamePlaceholder')}
                     />
-                    <span className="absolute -left-3 sm:-left-3.5 top-1/2 -translate-y-1/2 text-sm text-indigo-500 font-black">฿</span>
+                    <div className="relative shrink-0">
+                      <input 
+                        type="number"
+                        inputMode="decimal"
+                        value={item.price || ''}
+                        onChange={(e) => updateSharedItem(item.id, { price: Number(e.target.value) })}
+                        className="w-20 sm:w-24 text-base font-extrabold glass-input rounded-xl px-2 sm:px-3 py-2 focus:ring-2 focus:ring-indigo-500 text-right text-slate-900 focus:scale-[1.03] transition-transform"
+                        placeholder="0"
+                        ref={(el) => {
+                          if (el && focusTargetItemId === item.id) {
+                            el.focus();
+                            setFocusTargetItemId(null);
+                          }
+                        }}
+                      />
+                      <span className="absolute -left-3 sm:-left-3.5 top-1/2 -translate-y-1/2 text-sm text-indigo-500 font-black">฿</span>
+                    </div>
+                    <button
+                      onClick={() => { vibrate(10); setExpandedItemOptionsId(expandedItemOptionsId === item.id ? null : item.id); }}
+                      className={`p-1 sm:p-1.5 transition-colors shrink-0 rounded-xl ${expandedItemOptionsId === item.id ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 hover:text-indigo-500 hover:bg-indigo-50'}`}
+                    >
+                      <SlidersHorizontal size={18} />
+                    </button>
+                    <button 
+                      onClick={() => removeSharedItem(item.id)}
+                      className="p-1 sm:p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all shrink-0 cursor-pointer"
+                    >
+                      <X size={18} />
+                    </button>
                   </div>
-                  <button 
-                    onClick={() => removeSharedItem(item.id)}
-                    className="p-1 sm:p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all shrink-0 cursor-pointer"
-                  >
-                    <X size={18} />
-                  </button>
+
+                  <AnimatePresence>
+                    {expandedItemOptionsId === item.id && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="flex items-center gap-2 pt-1 pb-2 overflow-x-auto hide-scrollbar"
+                      >
+                        <button 
+                          onClick={() => { vibrate(10); updateSharedItem(item.id, { excludeDiscount: !item.excludeDiscount }); }}
+                          className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5
+                            ${!item.excludeDiscount ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400 line-through'}`}
+                        >
+                          {!item.excludeDiscount && <Check size={12} />}
+                          {t('discount')}
+                        </button>
+                        <button 
+                          onClick={() => { vibrate(10); updateSharedItem(item.id, { excludeServiceCharge: !item.excludeServiceCharge }); }}
+                          className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5
+                            ${!item.excludeServiceCharge ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400 line-through'}`}
+                        >
+                          {!item.excludeServiceCharge && <Check size={12} />}
+                          {t('serviceCharge')}
+                        </button>
+                        <button 
+                          onClick={() => { vibrate(10); updateSharedItem(item.id, { excludeVat: !item.excludeVat }); }}
+                          className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5
+                            ${!item.excludeVat ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400 line-through'}`}
+                        >
+                          {!item.excludeVat && <Check size={12} />}
+                          {t('vat')}
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -981,38 +1062,82 @@ export default function App() {
                               initial={{ opacity: 0, x: -20 }}
                               animate={{ opacity: 1, x: 0 }}
                               exit={{ opacity: 0, x: 20, transition: { duration: 0.2 } }}
-                              className="flex items-center gap-2 sm:gap-3 bg-white/40 backdrop-blur-md px-3 sm:px-4 py-2 sm:py-3 rounded-[1.25rem] group/item border border-white/50 focus-within:bg-white/80 transition-all shadow-[0_2px_10px_rgba(0,0,0,0.02)]"
+                              className="flex flex-col gap-2 bg-white/40 backdrop-blur-md px-3 sm:px-4 py-2 sm:py-3 rounded-[1.25rem] group/item border border-white/50 focus-within:bg-white/80 transition-all shadow-[0_2px_10px_rgba(0,0,0,0.02)]"
                             >
-                              <input 
-                                type="text"
-                                value={item.name}
-                                onChange={(e) => updateItem(person.id, item.id, { name: e.target.value })}
-                                className="flex-1 min-w-0 text-base bg-transparent border-none focus:ring-0 p-0 placeholder:text-slate-500 font-semibold text-slate-900"
-                                placeholder={t('itemNamePlaceholder')}
-                              />
-                              <div className="relative group/price shrink-0">
+                              <div className="flex items-center gap-2 sm:gap-3 w-full">
                                 <input 
-                                  type="number"
-                                  inputMode="decimal"
-                                  value={item.price || ''}
-                                  onChange={(e) => updateItem(person.id, item.id, { price: Number(e.target.value) })}
-                                  className="w-20 sm:w-24 text-base font-extrabold glass-input rounded-xl px-2 sm:px-3 py-2 focus:ring-2 focus:ring-indigo-500 text-right text-slate-900 focus:scale-[1.03] transition-transform"
-                                  placeholder="0"
-                                  ref={(el) => {
-                                    if (el && focusTargetItemId === item.id) {
-                                      el.focus();
-                                      setFocusTargetItemId(null);
-                                    }
-                                  }}
+                                  type="text"
+                                  value={item.name}
+                                  onChange={(e) => updateItem(person.id, item.id, { name: e.target.value })}
+                                  className="flex-1 min-w-0 text-base bg-transparent border-none focus:ring-0 p-0 placeholder:text-slate-500 font-semibold text-slate-900"
+                                  placeholder={t('itemNamePlaceholder')}
                                 />
-                                <span className="absolute -left-3 sm:-left-3.5 top-1/2 -translate-y-1/2 text-sm text-indigo-500 font-black">฿</span>
+                                <div className="relative group/price shrink-0">
+                                  <input 
+                                    type="number"
+                                    inputMode="decimal"
+                                    value={item.price || ''}
+                                    onChange={(e) => updateItem(person.id, item.id, { price: Number(e.target.value) })}
+                                    className="w-20 sm:w-24 text-base font-extrabold glass-input rounded-xl px-2 sm:px-3 py-2 focus:ring-2 focus:ring-indigo-500 text-right text-slate-900 focus:scale-[1.03] transition-transform"
+                                    placeholder="0"
+                                    ref={(el) => {
+                                      if (el && focusTargetItemId === item.id) {
+                                        el.focus();
+                                        setFocusTargetItemId(null);
+                                      }
+                                    }}
+                                  />
+                                  <span className="absolute -left-3 sm:-left-3.5 top-1/2 -translate-y-1/2 text-sm text-indigo-500 font-black">฿</span>
+                                </div>
+                                <button
+                                  onClick={() => { vibrate(10); setExpandedItemOptionsId(expandedItemOptionsId === item.id ? null : item.id); }}
+                                  className={`p-1 sm:p-1.5 transition-colors shrink-0 rounded-xl ${expandedItemOptionsId === item.id ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 hover:text-indigo-500 hover:bg-indigo-50'}`}
+                                >
+                                  <SlidersHorizontal size={18} />
+                                </button>
+                                <button 
+                                  onClick={() => removeItem(person.id, item.id)}
+                                  className="p-1 sm:p-1.5 text-slate-500 hover:text-orange-600 transition-colors shrink-0"
+                                >
+                                  <X size={18} />
+                                </button>
                               </div>
-                              <button 
-                                onClick={() => removeItem(person.id, item.id)}
-                                className="p-1 sm:p-1.5 text-slate-500 hover:text-orange-600 transition-colors shrink-0"
-                              >
-                                <X size={18} />
-                              </button>
+
+                              <AnimatePresence>
+                                {expandedItemOptionsId === item.id && (
+                                  <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    className="flex items-center gap-2 pt-1 pb-1 overflow-x-auto hide-scrollbar"
+                                  >
+                                    <button 
+                                      onClick={() => { vibrate(10); updateItem(person.id, item.id, { excludeDiscount: !item.excludeDiscount }); }}
+                                      className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5
+                                        ${!item.excludeDiscount ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400 line-through'}`}
+                                    >
+                                      {!item.excludeDiscount && <Check size={12} />}
+                                      {t('discount')}
+                                    </button>
+                                    <button 
+                                      onClick={() => { vibrate(10); updateItem(person.id, item.id, { excludeServiceCharge: !item.excludeServiceCharge }); }}
+                                      className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5
+                                        ${!item.excludeServiceCharge ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400 line-through'}`}
+                                    >
+                                      {!item.excludeServiceCharge && <Check size={12} />}
+                                      {t('serviceCharge')}
+                                    </button>
+                                    <button 
+                                      onClick={() => { vibrate(10); updateItem(person.id, item.id, { excludeVat: !item.excludeVat }); }}
+                                      className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5
+                                        ${!item.excludeVat ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400 line-through'}`}
+                                    >
+                                      {!item.excludeVat && <Check size={12} />}
+                                      {t('vat')}
+                                    </button>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
                             </motion.div>
                           ))}
                         </AnimatePresence>

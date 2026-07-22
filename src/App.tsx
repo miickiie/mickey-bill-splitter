@@ -687,7 +687,7 @@ export default function App() {
               <Receipt size={24} strokeWidth={2.5} />
             </button>
             <div>
-              <p className="text-xs uppercase tracking-[0.25em] text-indigo-600 font-black mt-1">
+              <p className="text-xs uppercase tracking-wider text-indigo-600 font-extrabold mt-1">
                 {settings.isSushiroMode ? `🍣 ${t('sushiroMode')}` : `🍛 ${t('smartSplitter')}`}
               </p>
             </div>
@@ -695,7 +695,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => { vibrate(10); i18n.changeLanguage(i18n.language === 'th' ? 'en' : 'th'); }}
-              className="w-11 h-11 flex items-center justify-center shrink-0 rounded-xl border border-slate-200 bg-white/80 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors text-sm font-black uppercase tracking-widest shadow-sm"
+              className="w-11 h-11 flex items-center justify-center shrink-0 rounded-xl border border-slate-200 bg-white/80 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors text-xs font-bold uppercase tracking-widest shadow-sm"
               title="Change Language"
             >
               {i18n.language === 'th' ? 'EN' : 'TH'}
@@ -739,13 +739,13 @@ export default function App() {
                 📲
               </div>
               <div>
-                <p className="text-xs font-black uppercase tracking-wider">{t('installApp')}</p>
-                <p className="text-[11px] text-indigo-100 font-medium">{t('installAppDesc')}</p>
+                <p className="text-xs font-bold uppercase tracking-wider">{t('installApp')}</p>
+                <p className="text-sm text-indigo-100 font-medium">{t('installAppDesc')}</p>
               </div>
             </div>
             <button
               onClick={handleInstallApp}
-              className="px-3.5 py-2 bg-white text-indigo-600 rounded-xl text-xs font-black hover:bg-indigo-50 active:scale-95 transition-all shadow-sm shrink-0 cursor-pointer"
+              className="px-3.5 py-2 bg-white text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-50 active:scale-95 transition-all shadow-sm shrink-0 cursor-pointer"
             >
               {t('installApp')}
             </button>
@@ -772,7 +772,7 @@ export default function App() {
                 <Trash2 size={32} />
               </div>
               <div className="space-y-2">
-                <h3 className="font-black text-xl text-slate-900">{t('clearConfirmTitle')}</h3>
+                <h3 className="font-extrabold text-xl text-slate-900">{t('clearConfirmTitle')}</h3>
                 <p className="text-base font-medium text-slate-500">{t('clearConfirmDesc')}</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -801,21 +801,21 @@ export default function App() {
         <section className="glass-card rounded-[2.5rem] p-7 space-y-6">
           <div className="flex items-center gap-2 text-indigo-600 px-1">
             <Settings2 size={18} />
-            <h2 className="text-xs font-black uppercase tracking-[0.2em]">{t('globalSettings')}</h2>
+            <h2 className="text-xs font-bold uppercase tracking-wider">{t('globalSettings')}</h2>
           </div>
           
           <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-4">
-            <div className="flex-[1.5] min-w-0 space-y-3">
+            <div className="flex-1 min-w-0 space-y-3">
               <div className="flex items-center justify-between ml-1">
                 <label className="text-sm font-bold text-slate-600">{t('sharedDiscount')}</label>
                 <div className="flex bg-slate-200/50 p-0.5 rounded-lg shrink-0">
                   <button 
                     onClick={() => { vibrate(10); setSettings({ ...settings, sharedDiscountType: 'amount' }); }}
-                    className={`px-3 py-1 rounded-md text-sm font-black transition-all ${settings.sharedDiscountType === 'amount' || !settings.sharedDiscountType ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${settings.sharedDiscountType === 'amount' || !settings.sharedDiscountType ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                   >฿</button>
                   <button 
                     onClick={() => { vibrate(10); setSettings({ ...settings, sharedDiscountType: 'percentage' }); }}
-                    className={`px-3 py-1 rounded-md text-sm font-black transition-all ${settings.sharedDiscountType === 'percentage' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${settings.sharedDiscountType === 'percentage' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                   >%</button>
                 </div>
               </div>
@@ -825,51 +825,51 @@ export default function App() {
                   inputMode="decimal"
                   value={settings.sharedDiscount || ''}
                   onChange={(e) => setSettings({ ...settings, sharedDiscount: Number(e.target.value) })}
-                  className="w-full glass-input rounded-[1.25rem] px-5 py-4 font-bold text-lg text-slate-900 placeholder:text-slate-500"
+                  className="w-full h-11 glass-input rounded-xl px-4 font-bold text-base text-slate-900 placeholder:text-slate-500"
                   placeholder="0.00"
                 />
-                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-indigo-500 font-black">
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-500 font-extrabold">
                   {settings.sharedDiscountType === 'percentage' ? '%' : '฿'}
                 </span>
               </div>
             </div>
 
-            <div className="flex-1 flex gap-3">
+            <div className="flex-1 flex gap-2">
               <button 
                 onClick={() => { vibrate(10); setSettings({ ...settings, hasServiceCharge: !settings.hasServiceCharge }); }}
-                className={`flex-1 h-[56px] rounded-[1.25rem] border transition-all flex flex-col items-center justify-center outline-none px-2 ${
+                className={`flex-1 h-11 rounded-xl border transition-all flex items-center justify-center gap-2 outline-none px-2 ${
                   settings.hasServiceCharge 
-                    ? 'vibrant-gradient-light border-transparent text-white shadow-[0_8px_16px_rgba(99,102,241,0.2)]' 
+                    ? 'vibrant-gradient-light border-transparent text-white shadow-md' 
                     : 'glass-input text-slate-600 hover:text-slate-800'
                 }`}
               >
-                <span className="text-xs font-black uppercase leading-tight text-center relative z-10">SVC 10%</span>
-                <div className={`w-1.5 h-1.5 rounded-full mt-1.5 transition-all relative z-10 ${settings.hasServiceCharge ? 'bg-white scale-125' : 'bg-slate-400'}`} />
+                <div className={`w-1.5 h-1.5 rounded-full transition-all relative z-10 ${settings.hasServiceCharge ? 'bg-white scale-125' : 'bg-slate-400'}`} />
+                <span className="text-xs font-bold uppercase leading-tight relative z-10">SVC 10%</span>
               </button>
               
               <button 
                 onClick={() => { vibrate(10); setSettings({ ...settings, hasVat: !settings.hasVat }); }}
-                className={`flex-1 h-[56px] rounded-[1.25rem] border transition-all flex flex-col items-center justify-center outline-none px-2 ${
+                className={`flex-1 h-11 rounded-xl border transition-all flex items-center justify-center gap-2 outline-none px-2 ${
                   settings.hasVat 
-                    ? 'vibrant-gradient-light border-transparent text-white shadow-[0_8px_16px_rgba(99,102,241,0.2)]' 
+                    ? 'vibrant-gradient-light border-transparent text-white shadow-md' 
                     : 'glass-input text-slate-600 hover:text-slate-800'
                 }`}
               >
-                <span className="text-xs font-black uppercase leading-tight text-center relative z-10">VAT 7%</span>
-                <div className={`w-1.5 h-1.5 rounded-full mt-1.5 transition-all relative z-10 ${settings.hasVat ? 'bg-white scale-125' : 'bg-slate-400'}`} />
+                <div className={`w-1.5 h-1.5 rounded-full transition-all relative z-10 ${settings.hasVat ? 'bg-white scale-125' : 'bg-slate-400'}`} />
+                <span className="text-xs font-bold uppercase leading-tight relative z-10">VAT 7%</span>
               </button>
             </div>
           </div>
 
           <div className="pt-3 border-t border-slate-200/60 space-y-2">
-            <label className="text-xs font-extrabold text-slate-600 uppercase tracking-wider block ml-1">
+            <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block ml-1">
               {t('discountTimingLabel')}
             </label>
             <div className="grid grid-cols-2 gap-2 bg-slate-200/50 p-1 rounded-2xl">
               <button
                 type="button"
                 onClick={() => { vibrate(10); setSettings({ ...settings, discountTiming: 'before' }); }}
-                className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   settings.discountTiming !== 'after' 
                     ? 'bg-white text-indigo-600 shadow-sm' 
                     : 'text-slate-500 hover:text-slate-700'
@@ -880,7 +880,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => { vibrate(10); setSettings({ ...settings, discountTiming: 'after' }); }}
-                className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   settings.discountTiming === 'after' 
                     ? 'bg-white text-indigo-600 shadow-sm' 
                     : 'text-slate-500 hover:text-slate-700'
@@ -897,11 +897,11 @@ export default function App() {
           <div className="flex items-center justify-between px-1 gap-2 flex-wrap">
             <div className="flex items-center gap-2 text-indigo-600">
               <UtensilsCrossed size={18} />
-              <h2 className="text-xs font-black uppercase tracking-[0.2em]">{t('sharedItemsSection')}</h2>
+              <h2 className="text-xs font-bold uppercase tracking-wider">{t('sharedItemsSection')}</h2>
             </div>
             {breakdown.sharedItemsTotal > 0 && (
               <div className="text-right">
-                <span className="text-xs font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
+                <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
                   ฿{breakdown.sharedItemsTotal.toLocaleString()} ({t('sharedItemPerPersonLabel', { count: people.length, amount: breakdown.sharedItemPerPerson.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) })})
                 </span>
               </div>
@@ -941,7 +941,7 @@ export default function App() {
                           }
                         }}
                       />
-                      <span className="absolute -left-3 sm:-left-3.5 top-1/2 -translate-y-1/2 text-sm text-indigo-500 font-black">฿</span>
+                      <span className="absolute -left-3 sm:-left-3.5 top-1/2 -translate-y-1/2 text-sm text-indigo-500 font-extrabold">฿</span>
                     </div>
                     <button
                       onClick={() => { vibrate(10); setExpandedItemOptionsId(expandedItemOptionsId === item.id ? null : item.id); }}
@@ -967,7 +967,7 @@ export default function App() {
                       >
                         <button 
                           onClick={() => { vibrate(10); updateSharedItem(item.id, { excludeDiscount: !item.excludeDiscount }); }}
-                          className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5
+                          className={`px-2.5 py-1 text-sm font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5
                             ${!item.excludeDiscount ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400 line-through'}`}
                         >
                           {!item.excludeDiscount && <Check size={12} />}
@@ -975,7 +975,7 @@ export default function App() {
                         </button>
                         <button 
                           onClick={() => { vibrate(10); updateSharedItem(item.id, { excludeServiceCharge: !item.excludeServiceCharge }); }}
-                          className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5
+                          className={`px-2.5 py-1 text-sm font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5
                             ${!item.excludeServiceCharge ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400 line-through'}`}
                         >
                           {!item.excludeServiceCharge && <Check size={12} />}
@@ -983,7 +983,7 @@ export default function App() {
                         </button>
                         <button 
                           onClick={() => { vibrate(10); updateSharedItem(item.id, { excludeVat: !item.excludeVat }); }}
-                          className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5
+                          className={`px-2.5 py-1 text-sm font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5
                             ${!item.excludeVat ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400 line-through'}`}
                         >
                           {!item.excludeVat && <Check size={12} />}
@@ -1001,7 +1001,7 @@ export default function App() {
               className="w-full py-3 border-2 border-dashed border-indigo-200 rounded-[1.25rem] text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50/50 transition-all flex items-center justify-center gap-2 group/add cursor-pointer"
             >
               <Plus size={16} className="group-hover/add:scale-125 transition-transform" />
-              <span className="text-xs font-black uppercase tracking-widest">{t('addSharedItem')}</span>
+              <span className="text-xs font-bold uppercase tracking-widest">{t('addSharedItem')}</span>
             </button>
           </div>
         </section>
@@ -1009,7 +1009,7 @@ export default function App() {
         {/* Participants Content */}
         <div className="space-y-6">
           <div className="flex items-center justify-between px-3">
-            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-600 flex items-center gap-2">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
               <Users size={18} />
               {t('members')} ({people.length})
             </h2>
@@ -1030,7 +1030,7 @@ export default function App() {
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3 flex-1">
                       <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-500 shrink-0">
-                        <span className="text-base font-black">{(people.indexOf(person) + 1)}</span>
+                        <span className="text-base font-extrabold">{(people.indexOf(person) + 1)}</span>
                       </div>
                       <input 
                         type="text"
@@ -1087,7 +1087,7 @@ export default function App() {
                                       }
                                     }}
                                   />
-                                  <span className="absolute -left-3 sm:-left-3.5 top-1/2 -translate-y-1/2 text-sm text-indigo-500 font-black">฿</span>
+                                  <span className="absolute -left-3 sm:-left-3.5 top-1/2 -translate-y-1/2 text-sm text-indigo-500 font-extrabold">฿</span>
                                 </div>
                                 <button
                                   onClick={() => { vibrate(10); setExpandedItemOptionsId(expandedItemOptionsId === item.id ? null : item.id); }}
@@ -1113,7 +1113,7 @@ export default function App() {
                                   >
                                     <button 
                                       onClick={() => { vibrate(10); updateItem(person.id, item.id, { excludeDiscount: !item.excludeDiscount }); }}
-                                      className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5
+                                      className={`px-2.5 py-1 text-sm font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5
                                         ${!item.excludeDiscount ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400 line-through'}`}
                                     >
                                       {!item.excludeDiscount && <Check size={12} />}
@@ -1121,7 +1121,7 @@ export default function App() {
                                     </button>
                                     <button 
                                       onClick={() => { vibrate(10); updateItem(person.id, item.id, { excludeServiceCharge: !item.excludeServiceCharge }); }}
-                                      className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5
+                                      className={`px-2.5 py-1 text-sm font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5
                                         ${!item.excludeServiceCharge ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400 line-through'}`}
                                     >
                                       {!item.excludeServiceCharge && <Check size={12} />}
@@ -1129,7 +1129,7 @@ export default function App() {
                                     </button>
                                     <button 
                                       onClick={() => { vibrate(10); updateItem(person.id, item.id, { excludeVat: !item.excludeVat }); }}
-                                      className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5
+                                      className={`px-2.5 py-1 text-sm font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5
                                         ${!item.excludeVat ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400 line-through'}`}
                                     >
                                       {!item.excludeVat && <Check size={12} />}
@@ -1147,7 +1147,7 @@ export default function App() {
                           className="w-full py-4 border-2 border-dashed border-slate-300 rounded-[1.25rem] text-slate-500 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-all flex items-center justify-center gap-3 group/add"
                         >
                           <Plus size={18} className="group-hover/add:scale-125 transition-transform" />
-                          <span className="text-xs font-black uppercase tracking-widest">{t('addItem')}</span>
+                          <span className="text-xs font-bold uppercase tracking-widest">{t('addItem')}</span>
                         </button>
                       </>
                     ) : (
@@ -1161,7 +1161,7 @@ export default function App() {
                           { color: 'black' as const, emoji: '⚫️', label: '100' }
                         ].map((p) => (
                           <div key={p.color} className="flex flex-col items-center gap-2">
-                            <span className="text-sm font-black text-slate-600">{p.label}฿</span>
+                            <span className="text-xs font-bold text-slate-600">{p.label}฿</span>
                             <button 
                               onClick={() => updatePlateCount(person.id, p.color, 1)}
                               className="w-full aspect-square rounded-2xl bg-white/50 backdrop-blur-md border border-white flex items-center justify-center text-xl hover:bg-white hover:border-indigo-200 hover:shadow-sm active:scale-95 transition-all relative overflow-hidden group shadow-[0_2px_8px_rgba(0,0,0,0.02)]"
@@ -1178,7 +1178,7 @@ export default function App() {
                               >
                                 <Minus size={10} />
                               </button>
-                              <span className="text-base font-black text-slate-900 w-4 text-center">{person.plates?.[p.color] || 0}</span>
+                              <span className="text-base font-extrabold text-slate-900 w-4 text-center">{person.plates?.[p.color] || 0}</span>
                             </div>
                           </div>
                         ))}
@@ -1188,7 +1188,7 @@ export default function App() {
 
                   <div className="pt-6 border-t border-slate-50 flex items-end justify-between">
                     <div className="space-y-2">
-                      <label className="text-xs font-black text-slate-500 uppercase tracking-widest leading-none block ml-1">{t('individualDiscount')}</label>
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-widest leading-none block ml-1">{t('individualDiscount')}</label>
                       <div className="relative w-32 group/disc">
                         <input 
                           type="number"
@@ -1201,8 +1201,8 @@ export default function App() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs font-black text-slate-600 uppercase tracking-widest mb-1">{t('yourTotal')}</p>
-                      <p className="text-3xl font-black text-indigo-700 tabular-nums tracking-tighter">
+                      <p className="text-xs font-bold text-slate-600 uppercase tracking-widest mb-1">{t('yourTotal')}</p>
+                      <p className="text-3xl font-extrabold text-indigo-700 tabular-nums tracking-tighter">
                         ฿{breakdown.peopleTotals.find(pt => pt.personId === person.id)?.finalShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                     </div>
@@ -1221,7 +1221,7 @@ export default function App() {
                   <div className="p-2 bg-white rounded-xl shadow-sm border border-indigo-50 text-indigo-500">
                     <UserPlus size={20} strokeWidth={2.5} />
                   </div>
-                  <span className="text-xs font-black uppercase tracking-[0.2em] text-center">{t('addMember')}</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-center">{t('addMember')}</span>
                 </button>
 
                 <button 
@@ -1238,7 +1238,7 @@ export default function App() {
                       <Camera size={20} strokeWidth={2.5} />
                     )}
                   </div>
-                  <span className="text-xs font-black uppercase tracking-[0.2em] text-center">{isScanning ? t('scanning') : t('scanReceipt')}</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-center">{isScanning ? t('scanning') : t('scanReceipt')}</span>
                 </button>
                 <input
                   type="file"
@@ -1273,11 +1273,11 @@ export default function App() {
           <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 rounded-full -ml-32 -mb-32 blur-3xl pointer-events-none" />
           
           <div className="flex items-center justify-between relative z-10">
-            <h3 className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 text-slate-300">
+            <h3 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-slate-300">
               <ReceiptText size={18} />
               {t('summary')}
             </h3>
-            <div className="px-4 py-1.5 bg-slate-800 rounded-full text-xs font-black text-white/80 uppercase tracking-widest border border-slate-700">
+            <div className="px-4 py-1.5 bg-slate-800 rounded-full text-xs font-bold text-white/80 uppercase tracking-widest border border-slate-700">
               {people.length} {t('persons')}
             </div>
           </div>
@@ -1303,7 +1303,7 @@ export default function App() {
                 <span className="flex items-center gap-1.5">
                   <span>{t('totalDiscounts')}</span>
                   {(settings.hasServiceCharge || settings.hasVat) && (
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
                       {settings.discountTiming === 'after' ? 'หลัง SC/VAT' : 'ก่อน SC/VAT'}
                     </span>
                   )}
@@ -1330,7 +1330,7 @@ export default function App() {
             )}
 
             <div className="pt-6 border-t border-white/10 space-y-4">
-              <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-300">{t('individualTotals')}</h4>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">{t('individualTotals')}</h4>
               <div className="grid grid-cols-1 gap-3">
                 {people.map(p => {
                   const pt = breakdown.peopleTotals.find(total => total.personId === p.id);
@@ -1338,12 +1338,12 @@ export default function App() {
                   return (
                     <div key={p.id} className="flex items-center justify-between py-1 px-1 group">
                       <div className="flex items-center gap-3">
-                        <div className="w-6 h-6 rounded-lg bg-slate-800 flex items-center justify-center text-[9px] font-black text-slate-300 group-hover:text-indigo-400 transition-colors">
+                        <div className="w-6 h-6 rounded-lg bg-slate-800 flex items-center justify-center text-[9px] font-extrabold text-slate-300 group-hover:text-indigo-400 transition-colors">
                           {p.name.charAt(0)}
                         </div>
                         <span className="text-base font-bold text-slate-200 group-hover:text-white transition-colors">{p.name}</span>
                       </div>
-                      <span className="text-base font-black text-white tabular-nums">฿{pt.finalShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="text-base font-extrabold text-white tabular-nums">฿{pt.finalShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   );
                 })}
@@ -1352,8 +1352,8 @@ export default function App() {
 
             <div className="pt-8 border-t border-white/10 flex justify-between items-end">
               <div>
-                <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">{t('netTotal')}</p>
-                <div className="text-5xl font-black text-white tracking-tighter tabular-nums leading-none">
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">{t('netTotal')}</p>
+                <div className="text-5xl font-extrabold text-white tracking-tighter tabular-nums leading-none">
                   ฿{breakdown.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
               </div>
@@ -1385,14 +1385,14 @@ export default function App() {
                 <ArrowLeft size={16} strokeWidth={2.5} />
                 <span>{t('backToCalculator')}</span>
               </button>
-              <div className="px-4 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-full text-xs font-black uppercase tracking-widest border border-indigo-100 dark:border-indigo-900/50">
+              <div className="px-4 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-full text-xs font-bold uppercase tracking-widest border border-indigo-100 dark:border-indigo-900/50">
                 {t('qrMode')}
               </div>
             </div>
 
             <section className="glass-card rounded-[2.5rem] p-7 space-y-4">
               <div className="space-y-1 ml-1 flex items-center gap-2">
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest block">{t('promptPayIdLabel')}</label>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest block">{t('promptPayIdLabel')}</label>
               </div>
               <div className="relative group">
                 <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors">
@@ -1426,10 +1426,10 @@ export default function App() {
               ) : (
                 <>
                   <div className="space-y-1">
-                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">
+                    <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
                       {t('qrFor', { name: selectedMember?.name })}
                     </p>
-                    <p className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight tabular-nums">
+                    <p className="text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight tabular-nums">
                       ฿{selectedMemberTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   </div>
@@ -1475,7 +1475,7 @@ export default function App() {
             </section>
 
             <section className="space-y-3">
-              <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 pl-1">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 pl-1">
                 {t('selectPersonToPay')}
               </h3>
               <div className="grid grid-cols-1 gap-2">
@@ -1494,7 +1494,7 @@ export default function App() {
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black transition-colors ${
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold transition-colors ${
                           isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
                         }`}>
                           {p.name.charAt(0)}
@@ -1504,7 +1504,7 @@ export default function App() {
                         }`}>{p.name}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className={`text-base font-black tabular-nums ${
+                        <span className={`text-base font-extrabold tabular-nums ${
                           isSelected ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-900 dark:text-slate-100'
                         }`}>
                           ฿{amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -1535,8 +1535,8 @@ export default function App() {
       <footer className="fixed footer-safe-bottom left-1/2 -translate-x-1/2 z-40 w-full max-w-sm px-4">
         <div className="glass-card rounded-[2rem] p-4 flex items-center justify-between gap-4">
           <div className="pl-2">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('netTotal')}</p>
-            <p className="text-xl font-black text-slate-900 dark:text-slate-100 tabular-nums tracking-tighter">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{t('netTotal')}</p>
+            <p className="text-xl font-extrabold text-slate-900 dark:text-slate-100 tabular-nums tracking-tighter">
               ฿{breakdown.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
           </div>
@@ -1573,7 +1573,7 @@ export default function App() {
                     className="flex items-center gap-1.5"
                   >
                     <Check size={16} strokeWidth={3} />
-                    <span className="text-[10px] font-black uppercase tracking-wider">{t('copied')}</span>
+                    <span className="text-xs font-bold uppercase tracking-wider">{t('copied')}</span>
                   </motion.div>
                 ) : (
                   <motion.div 
@@ -1584,7 +1584,7 @@ export default function App() {
                     className="flex items-center gap-1.5"
                   >
                     <Share2 size={16} strokeWidth={2.5} />
-                    <span className="text-[10px] font-black uppercase tracking-wider">{t('share')}</span>
+                    <span className="text-xs font-bold uppercase tracking-wider">{t('share')}</span>
                   </motion.div>
                 )}
               </AnimatePresence>

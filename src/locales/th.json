@@ -45,6 +45,17 @@
     "selectPersonToPay": "เลือกสมาชิกเพื่อแสดง QR Code",
     "qrFor": "QR พร้อมเพย์ของ {{name}}",
     "enterPromptPayFirst": "กรุณาใส่พร้อมเพย์",
-    "invalidAmount": "ยอดเงินเป็น 0 บาท"
+    "invalidAmount": "ยอดเงินเป็น 0 บาท",
+    "sharedItemsSection": "รายการอาหารทานร่วมกัน (เมนูกลาง)",
+    "addSharedItem": "เพิ่มเมนูกลาง",
+    "sharedItemNamePlaceholder": "ระบุเมนูกลาง...",
+    "sharedItemsTotalLabel": "รวมเมนูกลาง",
+    "sharedItemPerPersonLabel": "หาร {{count}} คน ละ ฿{{amount}}",
+    "sharedItemsSummaryHeading": "เมนูกลาง (หารเท่า)",
+    "discountTimingLabel": "ลำดับการคิดส่วนลด",
+    "discountTimingBefore": "ก่อนคิด SC & VAT (ปกติ)",
+    "discountTimingAfter": "หลังคิด SC & VAT (คูปอง/ท้ายบิล)",
+    "installApp": "ติดตั้งแอป",
+    "installAppDesc": "ติดตั้งแอปไว้บนหน้าจอหลักเพื่อเข้าถึงได้สะดวก"
   }
 }

@@ -1,0 +1,27 @@
+{
+  "short_name": "BillSplitter",
+  "name": "Bill Splitter - หารค่าอาหาร & พร้อมเพย์ QR",
+  "description": "Easy bill calculator with individual items, shared menu split, PromptPay QR generator and Sushiro mode.",
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "id": "/",
+  "start_url": "./",
+  "background_color": "#0f172a",
+  "theme_color": "#4f46e5",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "./",
+  "categories": ["utilities", "finance", "food"]
+}

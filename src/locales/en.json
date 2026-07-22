@@ -45,6 +45,17 @@
     "selectPersonToPay": "Select member to display their QR Code",
     "qrFor": "PromptPay QR for {{name}}",
     "enterPromptPayFirst": "Please enter a PromptPay Phone/ID first",
-    "invalidAmount": "Amount is ฿0.00"
+    "invalidAmount": "Amount is ฿0.00",
+    "sharedItemsSection": "Shared Menu Items",
+    "addSharedItem": "Add Shared Item",
+    "sharedItemNamePlaceholder": "Shared item name...",
+    "sharedItemsTotalLabel": "Shared Items Total",
+    "sharedItemPerPersonLabel": "฿{{amount}} / person ({{count}} members)",
+    "sharedItemsSummaryHeading": "Shared Menu (Equal Split)",
+    "discountTimingLabel": "Apply Discount",
+    "discountTimingBefore": "Before SC & VAT (Standard)",
+    "discountTimingAfter": "After SC & VAT (Vouchers)",
+    "installApp": "Install App",
+    "installAppDesc": "Install app on your home screen for quick access"
   }
 }

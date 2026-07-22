@@ -23,6 +23,7 @@ export interface Person {
 export interface BillSettings {
   sharedDiscount: number;
   sharedDiscountType?: 'amount' | 'percentage';
+  discountTiming?: 'before' | 'after';
   hasServiceCharge: boolean; // 10%
   hasVat: boolean; // 7%
   isSushiroMode?: boolean;
@@ -31,6 +32,8 @@ export interface BillSettings {
 
 export interface CalculationBreakdown {
   subtotal: number;
+  sharedItemsTotal: number;
+  sharedItemPerPerson: number;
   totalIndividualDiscounts: number;
   sharedDiscountPerPerson: number;
   totalSharedDiscount: number;
@@ -40,6 +43,8 @@ export interface CalculationBreakdown {
   peopleTotals: {
     personId: string;
     itemsTotal: number;
+    individualItemsTotal: number;
+    sharedItemsShare: number;
     finalShare: number;
   }[];
 }

@@ -17,7 +17,8 @@ import {
   QrCode,
   Phone,
   ArrowLeft,
-  Download
+  Download,
+  UtensilsCrossed
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Person, Item, BillSettings, CalculationBreakdown, Plates } from './types';
@@ -70,6 +71,7 @@ export default function App() {
   const [people, setPeople] = useState<Person[]>([
     { id: '1', name: t('personDefaultName'), items: [], individualDiscount: 0, plates: { ...INITIAL_PLATES } }
   ]);
+  const [sharedItems, setSharedItems] = useState<Item[]>([]);
   const [settings, setSettings] = useState<BillSettings>({
     sharedDiscount: 0,
     sharedDiscountType: 'amount',
@@ -100,6 +102,29 @@ export default function App() {
   const [selectedPersonForQR, setSelectedPersonForQR] = useState<string>('1');
   const [copiedQRId, setCopiedQRId] = useState<string | null>(null);
   const [focusTargetItemId, setFocusTargetItemId] = useState<string | null>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  // PWA install prompt listener
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (!deferredPrompt) return;
+    vibrate(10);
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
 
   // Persist promptPayId
   useEffect(() => {
@@ -124,8 +149,9 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        setPeople(parsed.people);
-        setSettings(parsed.settings);
+        if (parsed.people) setPeople(parsed.people);
+        if (parsed.sharedItems) setSharedItems(parsed.sharedItems);
+        if (parsed.settings) setSettings(parsed.settings);
       } catch (e) {
         console.error("Failed to load state", e);
       }
@@ -133,8 +159,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('bill-splitter-state-v2', JSON.stringify({ people, settings }));
-  }, [people, settings]);
+    localStorage.setItem('bill-splitter-state-v2', JSON.stringify({ people, sharedItems, settings }));
+  }, [people, sharedItems, settings]);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -232,65 +258,151 @@ export default function App() {
     setPeople(people.map(p => p.id === personId ? { ...p, individualDiscount: discount } : p));
   };
 
+  const addSharedItem = () => {
+    vibrate(10);
+    const newItemId = crypto.randomUUID();
+    setSharedItems(prev => [...prev, { id: newItemId, name: '', price: 0 }]);
+    setFocusTargetItemId(newItemId);
+  };
+
+  const updateSharedItem = (itemId: string, updates: Partial<Item>) => {
+    setSharedItems(prev => prev.map(item => item.id === itemId ? { ...item, ...updates } : item));
+  };
+
+  const removeSharedItem = (itemId: string) => {
+    vibrate([20, 50, 20]);
+    setSharedItems(prev => prev.filter(item => item.id !== itemId));
+  };
+
   const breakdown = useMemo((): CalculationBreakdown => {
-    let subtotal = 0;
+    const sharedItemsTotal = sharedItems.reduce((acc, item) => acc + (item.price || 0), 0);
+    const memberCount = people.length || 1;
+    const sharedItemPerPerson = sharedItemsTotal / memberCount;
+
+    let subtotal = sharedItemsTotal;
     let totalIndividualDiscounts = 0;
     
     const peopleBases = people.map(p => {
-      let itemsTotal = p.items.reduce((acc, item) => acc + (item.price || 0), 0);
+      let individualItemsTotal = p.items.reduce((acc, item) => acc + (item.price || 0), 0);
       
       // Add plates total if in Sushiro mode
       if (settings.isSushiroMode && p.plates) {
-        itemsTotal += (p.plates.white * PLATE_PRICES.white);
-        itemsTotal += (p.plates.red * PLATE_PRICES.red);
-        itemsTotal += (p.plates.silver * PLATE_PRICES.silver);
-        itemsTotal += (p.plates.gold * PLATE_PRICES.gold);
-        itemsTotal += (p.plates.black * PLATE_PRICES.black);
+        individualItemsTotal += (p.plates.white * PLATE_PRICES.white);
+        individualItemsTotal += (p.plates.red * PLATE_PRICES.red);
+        individualItemsTotal += (p.plates.silver * PLATE_PRICES.silver);
+        individualItemsTotal += (p.plates.gold * PLATE_PRICES.gold);
+        individualItemsTotal += (p.plates.black * PLATE_PRICES.black);
       }
 
-      subtotal += itemsTotal;
+      const itemsTotal = individualItemsTotal + sharedItemPerPerson;
+      subtotal += individualItemsTotal;
       totalIndividualDiscounts += (p.individualDiscount || 0);
       
-      const personBaseAfterIndividual = Math.max(0, itemsTotal - (p.individualDiscount || 0));
-      return { personId: p.id, personBaseAfterIndividual, itemsTotal };
+      return { 
+        personId: p.id, 
+        individualDiscount: p.individualDiscount || 0,
+        itemsTotal,
+        individualItemsTotal,
+        sharedItemsShare: sharedItemPerPerson 
+      };
     });
 
-    const totalSharedDiscountValue = settings.sharedDiscountType === 'percentage'
-      ? subtotal * ((settings.sharedDiscount || 0) / 100)
-      : (settings.sharedDiscount || 0);
+    const isAfterDiscount = settings.discountTiming === 'after';
 
-    const sharedDiscountPerPerson = totalSharedDiscountValue / (people.length || 1);
-    
-    const finalBases = peopleBases.map(pb => {
-      const baseAfterShared = Math.max(0, pb.personBaseAfterIndividual - sharedDiscountPerPerson);
-      return { ...pb, baseAfterShared };
-    });
+    if (isAfterDiscount) {
+      // Apply discount AFTER Service Charge & VAT
+      const serviceChargeTotal = settings.hasServiceCharge ? subtotal * 0.10 : 0;
+      const vatBase = subtotal + serviceChargeTotal;
+      const vatTotal = settings.hasVat ? vatBase * 0.07 : 0;
+      const grossGrandTotal = vatBase + vatTotal;
 
-    const totalBase = finalBases.reduce((acc, p) => acc + p.baseAfterShared, 0);
-    const serviceChargeTotal = settings.hasServiceCharge ? totalBase * 0.10 : 0;
-    const vatBase = totalBase + serviceChargeTotal;
-    const vatTotal = settings.hasVat ? vatBase * 0.07 : 0;
-    const grandTotal = vatBase + vatTotal;
+      const grossMultiplier = subtotal > 0 ? grossGrandTotal / subtotal : 0;
 
-    const multiplier = totalBase > 0 ? grandTotal / totalBase : 0;
+      const totalSharedDiscountValue = settings.sharedDiscountType === 'percentage'
+        ? grossGrandTotal * ((settings.sharedDiscount || 0) / 100)
+        : (settings.sharedDiscount || 0);
 
-    const peopleTotals = finalBases.map(fb => ({
-      personId: fb.personId,
-      itemsTotal: fb.itemsTotal,
-      finalShare: fb.baseAfterShared * multiplier
-    }));
+      const sharedDiscountPerPerson = totalSharedDiscountValue / memberCount;
 
-    return {
-      subtotal,
-      totalIndividualDiscounts,
-      sharedDiscountPerPerson,
-      totalSharedDiscount: totalSharedDiscountValue,
-      serviceChargeTotal,
-      vatTotal,
-      grandTotal,
-      peopleTotals
-    };
-  }, [people, settings]);
+      const peopleTotals = peopleBases.map(pb => {
+        const grossPersonShare = pb.itemsTotal * grossMultiplier;
+        const afterIndividual = Math.max(0, grossPersonShare - pb.individualDiscount);
+        const finalShare = Math.max(0, afterIndividual - sharedDiscountPerPerson);
+
+        return {
+          personId: pb.personId,
+          itemsTotal: pb.itemsTotal,
+          individualItemsTotal: pb.individualItemsTotal,
+          sharedItemsShare: pb.sharedItemsShare,
+          finalShare
+        };
+      });
+
+      const grandTotal = peopleTotals.reduce((acc, pt) => acc + pt.finalShare, 0);
+
+      return {
+        subtotal,
+        sharedItemsTotal,
+        sharedItemPerPerson,
+        totalIndividualDiscounts,
+        sharedDiscountPerPerson,
+        totalSharedDiscount: totalSharedDiscountValue,
+        serviceChargeTotal,
+        vatTotal,
+        grandTotal,
+        peopleTotals
+      };
+    } else {
+      // DEFAULT: Apply discount BEFORE Service Charge & VAT
+      const basesWithDiscount = peopleBases.map(pb => {
+        const personBaseAfterIndividual = Math.max(0, pb.itemsTotal - pb.individualDiscount);
+        return {
+          ...pb,
+          personBaseAfterIndividual
+        };
+      });
+
+      const totalSharedDiscountValue = settings.sharedDiscountType === 'percentage'
+        ? subtotal * ((settings.sharedDiscount || 0) / 100)
+        : (settings.sharedDiscount || 0);
+
+      const sharedDiscountPerPerson = totalSharedDiscountValue / memberCount;
+
+      const finalBases = basesWithDiscount.map(pb => {
+        const baseAfterShared = Math.max(0, pb.personBaseAfterIndividual - sharedDiscountPerPerson);
+        return { ...pb, baseAfterShared };
+      });
+
+      const totalBase = finalBases.reduce((acc, p) => acc + p.baseAfterShared, 0);
+      const serviceChargeTotal = settings.hasServiceCharge ? totalBase * 0.10 : 0;
+      const vatBase = totalBase + serviceChargeTotal;
+      const vatTotal = settings.hasVat ? vatBase * 0.07 : 0;
+      const grandTotal = vatBase + vatTotal;
+
+      const multiplier = totalBase > 0 ? grandTotal / totalBase : 0;
+
+      const peopleTotals = finalBases.map(fb => ({
+        personId: fb.personId,
+        itemsTotal: fb.itemsTotal,
+        individualItemsTotal: fb.individualItemsTotal,
+        sharedItemsShare: fb.sharedItemsShare,
+        finalShare: fb.baseAfterShared * multiplier
+      }));
+
+      return {
+        subtotal,
+        sharedItemsTotal,
+        sharedItemPerPerson,
+        totalIndividualDiscounts,
+        sharedDiscountPerPerson,
+        totalSharedDiscount: totalSharedDiscountValue,
+        serviceChargeTotal,
+        vatTotal,
+        grandTotal,
+        peopleTotals
+      };
+    }
+  }, [people, sharedItems, settings]);
 
   const selectedMember = useMemo(() => {
     return people.find(p => p.id === selectedPersonForQR) || people[0];
@@ -315,6 +427,11 @@ export default function App() {
   const copySummary = () => {
     vibrate([10, 30, 10]);
     let text = t('copyTemplateSubtotal', { count: people.length });
+
+    if (sharedItems.length > 0 && breakdown.sharedItemsTotal > 0) {
+      text += `🍲 ${t('sharedItemsSection')}: ฿${breakdown.sharedItemsTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${t('sharedItemPerPersonLabel', { count: people.length, amount: breakdown.sharedItemPerPerson.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) })})\n\n`;
+    }
+
     people.forEach(p => {
       const share = breakdown.peopleTotals.find(pt => pt.personId === p.id)?.finalShare || 0;
       text += `👤 ${p.name}: ฿${share.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
@@ -329,6 +446,7 @@ export default function App() {
   const resetAll = () => {
     vibrate([30, 50, 30]);
     setPeople([{ id: '1', name: t('personDefaultName'), items: [], individualDiscount: 0, plates: { ...INITIAL_PLATES } }]);
+    setSharedItems([]);
     setSettings({ sharedDiscount: 0, sharedDiscountType: 'amount', hasServiceCharge: false, hasVat: false, isSushiroMode: false });
     setShowResetConfirm(false);
   };
@@ -571,6 +689,33 @@ export default function App() {
         </div>
       </header>
 
+      {/* PWA Install Banner */}
+      {deferredPrompt && (
+        <div className="max-w-xl mx-auto px-6 pt-4">
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl flex items-center justify-between shadow-lg shadow-indigo-200"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center font-bold text-lg">
+                📲
+              </div>
+              <div>
+                <p className="text-xs font-black uppercase tracking-wider">{t('installApp')}</p>
+                <p className="text-[11px] text-indigo-100 font-medium">{t('installAppDesc')}</p>
+              </div>
+            </div>
+            <button
+              onClick={handleInstallApp}
+              className="px-3.5 py-2 bg-white text-indigo-600 rounded-xl text-xs font-black hover:bg-indigo-50 active:scale-95 transition-all shadow-sm shrink-0 cursor-pointer"
+            >
+              {t('installApp')}
+            </button>
+          </motion.div>
+        </div>
+      )}
+
       {/* Reset Confirmation Modal */}
       <AnimatePresence>
         {showResetConfirm && (
@@ -677,6 +822,106 @@ export default function App() {
                 <div className={`w-1.5 h-1.5 rounded-full mt-1.5 transition-all relative z-10 ${settings.hasVat ? 'bg-white scale-125' : 'bg-slate-400'}`} />
               </button>
             </div>
+          </div>
+
+          <div className="pt-3 border-t border-slate-200/60 space-y-2">
+            <label className="text-xs font-extrabold text-slate-600 uppercase tracking-wider block ml-1">
+              {t('discountTimingLabel')}
+            </label>
+            <div className="grid grid-cols-2 gap-2 bg-slate-200/50 p-1 rounded-2xl">
+              <button
+                type="button"
+                onClick={() => { vibrate(10); setSettings({ ...settings, discountTiming: 'before' }); }}
+                className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                  settings.discountTiming !== 'after' 
+                    ? 'bg-white text-indigo-600 shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {t('discountTimingBefore')}
+              </button>
+              <button
+                type="button"
+                onClick={() => { vibrate(10); setSettings({ ...settings, discountTiming: 'after' }); }}
+                className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                  settings.discountTiming === 'after' 
+                    ? 'bg-white text-indigo-600 shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {t('discountTimingAfter')}
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* Shared Menu Section */}
+        <section className="glass-card rounded-[2.5rem] p-7 space-y-6">
+          <div className="flex items-center justify-between px-1 gap-2 flex-wrap">
+            <div className="flex items-center gap-2 text-indigo-600">
+              <UtensilsCrossed size={18} />
+              <h2 className="text-xs font-black uppercase tracking-[0.2em]">{t('sharedItemsSection')}</h2>
+            </div>
+            {breakdown.sharedItemsTotal > 0 && (
+              <div className="text-right">
+                <span className="text-xs font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
+                  ฿{breakdown.sharedItemsTotal.toLocaleString()} ({t('sharedItemPerPersonLabel', { count: people.length, amount: breakdown.sharedItemPerPerson.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) })})
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <AnimatePresence initial={false}>
+              {sharedItems.map((item) => (
+                <motion.div 
+                  key={item.id}
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="flex items-center gap-2"
+                >
+                  <input 
+                    type="text"
+                    value={item.name}
+                    onChange={(e) => updateSharedItem(item.id, { name: e.target.value })}
+                    className="flex-1 min-w-0 text-base font-semibold glass-input rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500 text-slate-900 placeholder:text-slate-400"
+                    placeholder={t('sharedItemNamePlaceholder')}
+                  />
+                  <div className="relative shrink-0">
+                    <input 
+                      type="number"
+                      inputMode="decimal"
+                      value={item.price || ''}
+                      onChange={(e) => updateSharedItem(item.id, { price: Number(e.target.value) })}
+                      className="w-20 sm:w-24 text-base font-extrabold glass-input rounded-xl px-2 sm:px-3 py-2 focus:ring-2 focus:ring-indigo-500 text-right text-slate-900 focus:scale-[1.03] transition-transform"
+                      placeholder="0"
+                      ref={(el) => {
+                        if (el && focusTargetItemId === item.id) {
+                          el.focus();
+                          setFocusTargetItemId(null);
+                        }
+                      }}
+                    />
+                    <span className="absolute -left-3 sm:-left-3.5 top-1/2 -translate-y-1/2 text-sm text-indigo-500 font-black">฿</span>
+                  </div>
+                  <button 
+                    onClick={() => removeSharedItem(item.id)}
+                    className="p-1 sm:p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all shrink-0 cursor-pointer"
+                  >
+                    <X size={18} />
+                  </button>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+
+            <button 
+              onClick={addSharedItem}
+              className="w-full py-3 border-2 border-dashed border-indigo-200 rounded-[1.25rem] text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50/50 transition-all flex items-center justify-center gap-2 group/add cursor-pointer"
+            >
+              <Plus size={16} className="group-hover/add:scale-125 transition-transform" />
+              <span className="text-xs font-black uppercase tracking-widest">{t('addSharedItem')}</span>
+            </button>
           </div>
         </section>
 
@@ -917,11 +1162,28 @@ export default function App() {
               <span>{t('subtotal')}</span>
               <span className="text-white">฿{breakdown.subtotal.toLocaleString()}</span>
             </div>
+
+            {breakdown.sharedItemsTotal > 0 && (
+              <div className="flex justify-between items-center text-slate-400 text-sm">
+                <span className="flex items-center gap-1.5">
+                  <UtensilsCrossed size={14} className="text-indigo-400" />
+                  {t('sharedItemsSection')}
+                </span>
+                <span className="text-indigo-200">฿{breakdown.sharedItemsTotal.toLocaleString()} (฿{breakdown.sharedItemPerPerson.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/{t('persons')})</span>
+              </div>
+            )}
             
             {(breakdown.totalIndividualDiscounts + breakdown.totalSharedDiscount) > 0 && (
               <div className="flex justify-between items-center text-slate-400">
-                <span>{t('totalDiscounts')}</span>
-                <span className="text-emerald-400 font-bold">- ฿{(breakdown.totalIndividualDiscounts + breakdown.totalSharedDiscount).toLocaleString()}</span>
+                <span className="flex items-center gap-1.5">
+                  <span>{t('totalDiscounts')}</span>
+                  {(settings.hasServiceCharge || settings.hasVat) && (
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
+                      {settings.discountTiming === 'after' ? 'หลัง SC/VAT' : 'ก่อน SC/VAT'}
+                    </span>
+                  )}
+                </span>
+                <span className="text-emerald-400 font-bold">- ฿{(breakdown.totalIndividualDiscounts + breakdown.totalSharedDiscount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             )}
 

@@ -1,6 +1,5 @@
 {
   "translation": {
-    "appTitle": "Bill Splitter",
     "sushiroMode": "Sushiro Mode",
     "smartSplitter": "Bill-split Mode",
     "toggleSushiro": "Toggle to Sushiro Mode",
@@ -38,7 +37,6 @@
     "qrMode": "PromptPay QR",
     "promptPayIdLabel": "PromptPay Phone Number or National ID",
     "promptPayIdPlaceholder": "e.g. 0812345678 or 110xxxxxxxxx",
-    "copiedQR": "QR Image Copied!",
     "copyQRButton": "Copy QR Image",
     "downloadQR": "Download QR Image",
     "backToCalculator": "Back to Calculator",
@@ -49,9 +47,7 @@
     "sharedItemsSection": "Shared Menu Items",
     "addSharedItem": "Add Shared Item",
     "sharedItemNamePlaceholder": "Shared item name...",
-    "sharedItemsTotalLabel": "Shared Items Total",
     "sharedItemPerPersonLabel": "฿{{amount}} / person ({{count}} members)",
-    "sharedItemsSummaryHeading": "Shared Menu (Equal Split)",
     "discountTimingLabel": "Apply Discount",
     "discountTimingBefore": "Before SC & VAT (Standard)",
     "discountTimingAfter": "After SC & VAT (Vouchers)",

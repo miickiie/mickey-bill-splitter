@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, type ChangeEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -23,7 +23,6 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Person, Item, BillSettings, CalculationBreakdown, Plates } from './types';
-import { scanReceipt } from './services/receiptScanner';
 import confetti from 'canvas-confetti';
 import generatePayload from 'promptpay-qr';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -351,22 +350,6 @@ export default function App() {
       const items = getEffectiveItems(p);
       const D_p = (p.individualDiscount || 0) + sharedDiscountPerPerson;
 
-      let personItemsTotal = 0;
-      let personIndividualItemsTotal = 0;
-      let personSharedItemsShare = 0;
-
-      // For reporting
-      p.items.forEach(item => personIndividualItemsTotal += (item.price || 0));
-      if (settings.isSushiroMode && p.plates) {
-        personIndividualItemsTotal += (p.plates.white * PLATE_PRICES.white);
-        personIndividualItemsTotal += (p.plates.red * PLATE_PRICES.red);
-        personIndividualItemsTotal += (p.plates.silver * PLATE_PRICES.silver);
-        personIndividualItemsTotal += (p.plates.gold * PLATE_PRICES.gold);
-        personIndividualItemsTotal += (p.plates.black * PLATE_PRICES.black);
-      }
-      sharedItems.forEach(sItem => personSharedItemsShare += (sItem.price || 0) / memberCount);
-      personItemsTotal = personIndividualItemsTotal + personSharedItemsShare;
-
       let finalShare = 0;
       let personSC = 0;
       let personVAT = 0;
@@ -417,9 +400,6 @@ export default function App() {
 
       return {
         personId: p.id,
-        itemsTotal: personItemsTotal,
-        individualItemsTotal: personIndividualItemsTotal,
-        sharedItemsShare: personSharedItemsShare,
         finalShare
       };
     });
@@ -432,7 +412,6 @@ export default function App() {
       sharedItemsTotal,
       sharedItemPerPerson,
       totalIndividualDiscounts,
-      sharedDiscountPerPerson,
       totalSharedDiscount: totalSharedDiscountValue,
       serviceChargeTotal: globalServiceChargeTotal,
       vatTotal: globalVatTotal,
@@ -441,14 +420,19 @@ export default function App() {
     };
   }, [people, sharedItems, settings]);
 
+  const peopleTotalsById = useMemo(
+    () => new Map(breakdown.peopleTotals.map(total => [total.personId, total])),
+    [breakdown.peopleTotals]
+  );
+
   const selectedMember = useMemo(() => {
     return people.find(p => p.id === selectedPersonForQR) || people[0];
   }, [people, selectedPersonForQR]);
 
   const selectedMemberTotal = useMemo(() => {
     if (!selectedMember) return 0;
-    return breakdown.peopleTotals.find(pt => pt.personId === selectedMember.id)?.finalShare || 0;
-  }, [breakdown, selectedMember]);
+    return peopleTotalsById.get(selectedMember.id)?.finalShare || 0;
+  }, [peopleTotalsById, selectedMember]);
 
   const qrPayload = useMemo(() => {
     if (!promptPayId || selectedMemberTotal <= 0) return '';
@@ -470,7 +454,7 @@ export default function App() {
     }
 
     people.forEach(p => {
-      const share = breakdown.peopleTotals.find(pt => pt.personId === p.id)?.finalShare || 0;
+      const share = peopleTotalsById.get(p.id)?.finalShare || 0;
       text += `👤 ${p.name}: ฿${share.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
     });
     text += t('copyTemplateTotal', { total: breakdown.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) });
@@ -595,7 +579,7 @@ export default function App() {
     }());
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -609,6 +593,7 @@ export default function App() {
         const base64Image = base64Data.split(',')[1];
         
         try {
+          const { scanReceipt } = await import('./services/receiptScanner');
           const items = await scanReceipt(base64Image, file.type);
           if (items && items.length > 0) {
             // Remove the default person if it's empty
@@ -1016,7 +1001,7 @@ export default function App() {
           </div>
 
           <AnimatePresence initial={false}>
-            {people.map((person) => (
+            {people.map((person, index) => (
               <motion.div 
                 key={person.id}
                 layout
@@ -1030,7 +1015,7 @@ export default function App() {
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3 flex-1">
                       <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-500 shrink-0">
-                        <span className="text-base font-extrabold">{(people.indexOf(person) + 1)}</span>
+                        <span className="text-base font-extrabold">{index + 1}</span>
                       </div>
                       <input 
                         type="text"
@@ -1203,7 +1188,7 @@ export default function App() {
                     <div className="text-right">
                       <p className="text-xs font-bold text-slate-600 uppercase tracking-widest mb-1">{t('yourTotal')}</p>
                       <p className="text-3xl font-extrabold text-indigo-700 tabular-nums tracking-tighter">
-                        ฿{breakdown.peopleTotals.find(pt => pt.personId === person.id)?.finalShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ฿{peopleTotalsById.get(person.id)?.finalShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                     </div>
                   </div>
@@ -1333,7 +1318,7 @@ export default function App() {
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">{t('individualTotals')}</h4>
               <div className="grid grid-cols-1 gap-3">
                 {people.map(p => {
-                  const pt = breakdown.peopleTotals.find(total => total.personId === p.id);
+                  const pt = peopleTotalsById.get(p.id);
                   if (!pt) return null;
                   return (
                     <div key={p.id} className="flex items-center justify-between py-1 px-1 group">
@@ -1480,7 +1465,7 @@ export default function App() {
               </h3>
               <div className="grid grid-cols-1 gap-2">
                 {people.map(p => {
-                  const pt = breakdown.peopleTotals.find(total => total.personId === p.id);
+                  const pt = peopleTotalsById.get(p.id);
                   const amt = pt?.finalShare || 0;
                   const isSelected = p.id === selectedPersonForQR;
                   return (

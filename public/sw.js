@@ -37,17 +37,27 @@ self.addEventListener('fetch', (event) => {
   // Network-first strategy with cache fallback
   if (event.request.method !== 'GET') return;
 
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        if (response && response.status === 200 && response.type === 'basic') {
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
-        }
-        return response;
+  const networkResult = fetch(event.request).then((response) => ({
+    response,
+    cacheResponse: response.status === 200 && response.type === 'basic'
+      ? response.clone()
+      : null
+  }));
+
+  event.waitUntil(
+    networkResult
+      .then(({ cacheResponse }) => {
+        if (!cacheResponse) return undefined;
+        return caches.open(CACHE_NAME).then((cache) => {
+          return cache.put(event.request, cacheResponse);
+        });
       })
+      .catch(() => undefined)
+  );
+
+  event.respondWith(
+    networkResult
+      .then(({ response }) => response)
       .catch(() => {
         return caches.match(event.request).then((cachedResponse) => {
           if (cachedResponse) {

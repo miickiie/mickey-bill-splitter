@@ -38,16 +38,12 @@ export interface CalculationBreakdown {
   sharedItemsTotal: number;
   sharedItemPerPerson: number;
   totalIndividualDiscounts: number;
-  sharedDiscountPerPerson: number;
   totalSharedDiscount: number;
   serviceChargeTotal: number;
   vatTotal: number;
   grandTotal: number;
   peopleTotals: {
     personId: string;
-    itemsTotal: number;
-    individualItemsTotal: number;
-    sharedItemsShare: number;
     finalShare: number;
   }[];
 }

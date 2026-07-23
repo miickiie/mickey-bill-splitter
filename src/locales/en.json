@@ -53,6 +53,7 @@
     "discountTimingAfter": "After SC & VAT (Vouchers)",
     "installApp": "Install App",
     "installAppDesc": "Install app on your home screen for quick access",
+    "dismissInstallApp": "Close install app prompt",
     "discount": "Discount",
     "serviceCharge": "Service Charge",
     "vat": "VAT"

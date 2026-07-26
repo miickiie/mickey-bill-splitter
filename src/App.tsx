@@ -19,7 +19,8 @@ import {
   ArrowLeft,
   Download,
   UtensilsCrossed,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Instagram
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Person, Item, BillSettings, CalculationBreakdown, Plates } from './types';
@@ -1570,13 +1571,23 @@ export default function App() {
         )}
       </main>
 
-      <div className="text-center pb-8 pt-4">
-        <button 
+      <div className="pb-8 pt-4 flex items-center justify-center gap-1 text-sm font-semibold text-slate-500">
+        <button
+          type="button"
           onClick={triggerSpectacularEffect}
-          className="text-sm font-semibold text-slate-500 hover:text-indigo-500 transition-colors cursor-pointer outline-none active:scale-95"
+          className="cursor-pointer outline-none hover:text-indigo-500 transition-colors active:scale-95"
         >
           {t('credit')}
         </button>
+        <a
+          href="https://www.instagram.com/miiickiie/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 hover:text-indigo-500 transition-colors outline-none active:scale-95"
+        >
+          <Instagram className="w-4 h-4" aria-hidden="true" />
+          <span>Miiickiie</span>
+        </a>
       </div>
 
       {/* Modern Sticky Footer */}

@@ -3,9 +3,6 @@
 
 @theme {
   --font-sans: "Sora", "Manrope", "Noto Sans Thai", ui-sans-serif, system-ui, sans-serif;
-  --color-brand-primary: #6366f1;
-  --color-brand-secondary: #a855f7;
-  --color-brand-accent: #22c55e;
 }
 
 @layer base {

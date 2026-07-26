@@ -16,7 +16,7 @@ if (import.meta.env.DEV) {
   Object.assign(globalThis, {FIREBASE_APPCHECK_DEBUG_TOKEN: true});
 }
 
-export const firebaseAppCheck = initializeAppCheck(firebaseApp, {
+initializeAppCheck(firebaseApp, {
   provider: new ReCaptchaEnterpriseProvider('6LejI2YtAAAAAJTUvhmnA8e0KPUu2brIcB3pfxXw'),
   isTokenAutoRefreshEnabled: true,
 });

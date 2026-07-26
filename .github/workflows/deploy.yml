@@ -1,55 +1,85 @@
-name: Deploy to GitHub Pages
+name: Validate and deploy Firebase Hosting
 
 on:
-  # ทำงานอัตโนมัติเมื่อมีการ push โค้ดไปยังกิ่ง main
+  pull_request:
+    branches: ["main"]
   push:
-    branches: ["main", "master"]
-  # อนุญาตให้กดสั่งรันได้เองจากหน้าเว็บ GitHub
+    branches: ["main"]
   workflow_dispatch:
 
-# สิทธิ์สำหรับ GITHUB_TOKEN เพื่อให้สามารถอัปโหลดไปยัง GitHub Pages ได้
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
-# ป้องกันไม่ให้ทำงานซ้ำซ้อนกันหลายรอบ
 concurrency:
-  group: "pages"
+  group: firebase-${{ github.event.pull_request.number || 'production' }}
   cancel-in-progress: true
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build:
+    name: Test and build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
-          cache: 'npm'
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
 
+      - name: Test
+        run: npm test
+
       - name: Build
         run: npm run build
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Upload production artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          path: './dist'
+          name: firebase-dist
+          path: dist
+          if-no-files-found: error
+          retention-days: 7
 
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+  deploy:
+    name: Deploy production
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      contents: read
+    environment:
+      name: production
+      url: https://spliittrr.web.app/
+    steps:
+      - name: Checkout hosting configuration
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Download tested artifact
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: firebase-dist
+          path: dist
+
+      - name: Verify Firebase deploy credential
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SPLIITTRR }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::error::Missing GitHub secret FIREBASE_SERVICE_ACCOUNT_SPLIITTRR"
+            exit 1
+          fi
+
+      - name: Deploy live channel
+        uses: FirebaseExtended/action-hosting-deploy@7c850a480ce753f4f06f010801fc5a43787740bb # v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SPLIITTRR }}
+          channelId: live
+          projectId: spliittrr

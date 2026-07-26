@@ -9,11 +9,15 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "icons": "node create-pwa-icons.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "npm run lint && node --check github-pages-retirement/retire.js && node --check github-pages-retirement/sw.js",
+    "firebase:login": "firebase login",
+    "firebase:serve": "firebase emulators:start --only hosting",
+    "deploy:hosting": "firebase deploy --only hosting --project spliittrr"
   },
   "dependencies": {
-    "@google/genai": "^1.52.0",
     "canvas-confetti": "^1.9.4",
+    "firebase": "^12.16.0",
     "i18next": "^26.0.8",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
@@ -30,8 +34,14 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.0.4",
+    "firebase-tools": "^15.24.0",
     "tailwindcss": "^4.1.14",
     "typescript": "~5.8.2",
-    "vite": "^6.2.3"
+    "vite": "^6.2.3",
+    "vite-plugin-pwa": "^1.3.0",
+    "workbox-window": "^7.4.1"
+  },
+  "overrides": {
+    "protobufjs": "7.6.5"
   }
 }

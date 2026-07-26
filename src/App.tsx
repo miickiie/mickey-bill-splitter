@@ -26,6 +26,7 @@ import { Person, Item, BillSettings, CalculationBreakdown, Plates } from './type
 import confetti from 'canvas-confetti';
 import generatePayload from 'promptpay-qr';
 import { QRCodeCanvas } from 'qrcode.react';
+import { usePwaLifecycle } from './hooks/usePwaLifecycle';
 
 const PLATE_PRICES: Record<keyof Plates, number> = {
   white: 30,
@@ -67,6 +68,16 @@ const vibrate = (pattern: number | number[]) => {
 
 export default function App() {
   const { t, i18n } = useTranslation();
+  const {
+    installOffer,
+    requestInstall,
+    dismissInstall,
+    updateAvailable,
+    updateInProgress,
+    updateError,
+    applyUpdate,
+    dismissUpdate,
+  } = usePwaLifecycle();
   
   const [people, setPeople] = useState<Person[]>([
     { id: '1', name: t('personDefaultName'), items: [], individualDiscount: 0, plates: { ...INITIAL_PLATES } }
@@ -103,35 +114,6 @@ export default function App() {
   const [copiedQRId, setCopiedQRId] = useState<string | null>(null);
   const [focusTargetItemId, setFocusTargetItemId] = useState<string | null>(null);
   const [expandedItemOptionsId, setExpandedItemOptionsId] = useState<string | null>(null);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-
-  // PWA install prompt listener
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
-  }, []);
-
-  const handleInstallApp = async () => {
-    if (!deferredPrompt) return;
-    vibrate(10);
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setDeferredPrompt(null);
-    }
-  };
-
-  const handleDismissInstallApp = () => {
-    vibrate(10);
-    setDeferredPrompt(null);
-  };
-
   // Persist promptPayId
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -671,10 +653,16 @@ export default function App() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => { vibrate(10); setIsDarkMode(!isDarkMode); }}
-              className="w-12 h-12 shrink-0 vibrant-gradient rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-200 hover:scale-105 active:scale-95 transition-all outline-none"
-              title="Toggle Dark Mode"
+              className="w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center bg-white shadow-xl shadow-indigo-200 hover:scale-105 active:scale-95 transition-all outline-none overflow-hidden"
+              aria-label={t('toggleTheme')}
+              title={t('toggleTheme')}
             >
-              <Receipt size={24} strokeWidth={2.5} />
+              <img
+                src={`${import.meta.env.BASE_URL}favicon.svg`}
+                alt=""
+                aria-hidden="true"
+                className="w-full h-full"
+              />
             </button>
             <div>
               <p className="text-xs uppercase tracking-wider text-indigo-600 font-extrabold mt-1">
@@ -716,10 +704,58 @@ export default function App() {
         </div>
       </header>
 
-      {/* PWA Install Banner */}
-      {deferredPrompt && (
+      {/* PWA update/install banner */}
+      {updateAvailable ? (
         <div className="max-w-xl mx-auto px-6 pt-4">
-          <motion.div 
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl flex items-center justify-between shadow-lg shadow-indigo-200"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center font-bold text-lg shrink-0">
+                🔄
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-wider">{t('updateAvailable')}</p>
+                <p className="text-sm text-indigo-100 font-medium">
+                  {updateError ? t('updateFailed') : t('updateAvailableDesc')}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  vibrate(10);
+                  void applyUpdate();
+                }}
+                disabled={updateInProgress}
+                className="px-3.5 py-2 bg-white text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-50 active:scale-95 transition-all shadow-sm cursor-pointer disabled:cursor-wait disabled:opacity-70"
+              >
+                {updateInProgress
+                  ? t('updatingApp')
+                  : updateError
+                    ? t('retryUpdate')
+                    : t('refreshApp')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  vibrate(10);
+                  dismissUpdate();
+                }}
+                disabled={updateInProgress}
+                className="px-2.5 py-2 rounded-lg text-xs font-bold text-white/90 hover:text-white hover:bg-white/15 active:scale-95 transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {t('later')}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      ) : installOffer && (
+        <div className="max-w-xl mx-auto px-6 pt-4">
+          <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             className="p-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl flex items-center justify-between shadow-lg shadow-indigo-200"
@@ -730,20 +766,30 @@ export default function App() {
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-bold uppercase tracking-wider">{t('installApp')}</p>
-                <p className="text-sm text-indigo-100 font-medium">{t('installAppDesc')}</p>
+                <p className="text-sm text-indigo-100 font-medium">
+                  {installOffer === 'ios' ? t('installIosDesc') : t('installAppDesc')}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-1 shrink-0">
+              {installOffer === 'native' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrate(10);
+                    void requestInstall();
+                  }}
+                  className="px-3.5 py-2 bg-white text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-50 active:scale-95 transition-all shadow-sm cursor-pointer"
+                >
+                  {t('installApp')}
+                </button>
+              )}
               <button
                 type="button"
-                onClick={handleInstallApp}
-                className="px-3.5 py-2 bg-white text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-50 active:scale-95 transition-all shadow-sm cursor-pointer"
-              >
-                {t('installApp')}
-              </button>
-              <button
-                type="button"
-                onClick={handleDismissInstallApp}
+                onClick={() => {
+                  vibrate(10);
+                  dismissInstall();
+                }}
                 className="w-9 h-9 flex items-center justify-center rounded-lg text-white/80 hover:text-white hover:bg-white/15 active:scale-95 transition-all cursor-pointer"
                 aria-label={t('dismissInstallApp')}
                 title={t('dismissInstallApp')}

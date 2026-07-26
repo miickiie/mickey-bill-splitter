@@ -1,8 +1,8 @@
 {
   "translation": {
-    "sushiroMode": "Sushiro Mode",
-    "smartSplitter": "Bill-split Mode",
-    "toggleSushiro": "Toggle to Sushiro Mode",
+    "sushiroMode": "Sushiro",
+    "smartSplitter": "Spliittrr",
+    "toggleSushiro": "Toggle Sushiro",
     "clearAll": "Clear all data",
     "clearConfirmTitle": "Clear all data?",
     "clearConfirmDesc": "All items and members will be removed. This cannot be undone.",
@@ -63,6 +63,7 @@
     "retryUpdate": "Try again",
     "updateFailed": "Update failed. Please try again.",
     "toggleTheme": "Toggle light and dark theme",
+    "changeLanguage": "Change language",
     "discount": "Discount",
     "serviceCharge": "Service Charge",
     "vat": "VAT"

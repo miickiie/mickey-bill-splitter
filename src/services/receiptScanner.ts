@@ -1,6 +1,7 @@
 import {getAI, getGenerativeModel, GoogleAIBackend, Schema} from 'firebase/ai';
 
 import {firebaseApp} from './firebase';
+import {parseReceiptItems} from '../receiptItems';
 
 const responseSchema = Schema.array({
   items: Schema.object({
@@ -36,7 +37,7 @@ export async function scanReceipt(base64Image: string, mimeType: string) {
         mimeType,
       },
     },
-    'Extract all items, their quantities, and total prices from this food receipt. If a quantity is missing, assume it is 1. Extract exactly as shown.',
+    'Extract all items, their positive whole-number quantities, and total prices from this food receipt. If a quantity is missing, assume it is 1. Extract exactly as shown.',
   ]);
 
   const responseText = generationResult.response.text();
@@ -45,14 +46,5 @@ export async function scanReceipt(base64Image: string, mimeType: string) {
     throw new Error('No output from model.');
   }
 
-  let text = responseText.trim();
-  // Strip markdown code block if present
-  if (text.startsWith('```json')) {
-    text = text.substring(7, text.length - 3).trim();
-  } else if (text.startsWith('```')) {
-    text = text.substring(3, text.length - 3).trim();
-  }
-
-  const parsedResult = JSON.parse(text) as { name: string; quantity?: number; price: number }[];
-  return parsedResult;
+  return parseReceiptItems(responseText);
 }

@@ -23,19 +23,13 @@ import {
   Instagram
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Person, Item, BillSettings, CalculationBreakdown, Plates } from './types';
-import confetti from 'canvas-confetti';
+import { Person, Item, BillSettings, Plates } from './types';
 import generatePayload from 'promptpay-qr';
 import { QRCodeCanvas } from 'qrcode.react';
 import { usePwaLifecycle } from './hooks/usePwaLifecycle';
-
-const PLATE_PRICES: Record<keyof Plates, number> = {
-  white: 30,
-  red: 40,
-  silver: 60,
-  gold: 80,
-  black: 100
-};
+import { calculateBill, sanitizeNonNegativeNumber } from './calculation';
+import { BILL_STATE_STORAGE_KEY, parseStoredBillState } from './persistence';
+import { shouldReplaceStarterPerson } from './people';
 
 const INITIAL_PLATES: Plates = {
   white: 0,
@@ -45,25 +39,77 @@ const INITIAL_PLATES: Plates = {
   black: 0
 };
 
+const INITIAL_SETTINGS: BillSettings = {
+  sharedDiscount: 0,
+  sharedDiscountType: 'amount',
+  discountTiming: 'before',
+  hasServiceCharge: false,
+  hasVat: false,
+  isSushiroMode: false,
+  splitScanItemsByQuantity: true,
+};
+
+const MAX_RECEIPT_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_SCANNED_UNITS = 200;
+
+interface WindowWithTelegramHaptics extends Window {
+  Telegram?: {
+    WebApp?: {
+      HapticFeedback?: {
+        impactOccurred: (style: 'light') => void;
+        notificationOccurred: (type: 'success') => void;
+      };
+    };
+  };
+}
+
+const readFileAsDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
+  const reader = new FileReader();
+  reader.addEventListener('load', () => {
+    if (typeof reader.result === 'string') {
+      resolve(reader.result);
+    } else {
+      reject(new Error('Receipt image could not be read.'));
+    }
+  });
+  reader.addEventListener('error', () => {
+    reject(reader.error ?? new Error('Receipt image could not be read.'));
+  });
+  reader.readAsDataURL(file);
+});
+
+const loadInitialBillState = () => {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    return parseStoredBillState(localStorage.getItem(BILL_STATE_STORAGE_KEY));
+  } catch (error) {
+    console.error('Failed to read saved state', error);
+    return null;
+  }
+};
+
 const vibrate = (pattern: number | number[]) => {
   // Check for Telegram WebApp HapticFeedback as fallback for iOS
-  if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.HapticFeedback) {
+  const hapticFeedback = typeof window === 'undefined'
+    ? undefined
+    : (window as WindowWithTelegramHaptics).Telegram?.WebApp?.HapticFeedback;
+  if (hapticFeedback) {
     try {
-      const HapticFeedback = (window as any).Telegram.WebApp.HapticFeedback;
       if (Array.isArray(pattern) && pattern.length > 2) {
-        HapticFeedback.notificationOccurred('success');
+        hapticFeedback.notificationOccurred('success');
       } else {
-        HapticFeedback.impactOccurred('light');
+        hapticFeedback.impactOccurred('light');
       }
       return;
-    } catch (e) {}
+    } catch {}
   }
 
   // Standard Web Vibration API (Not supported by Apple on iOS Safari)
   if (typeof window !== 'undefined' && 'vibrate' in navigator) {
     try {
       navigator.vibrate(pattern);
-    } catch(e) {}
+    } catch {}
   }
 };
 
@@ -80,17 +126,26 @@ export default function App() {
     dismissUpdate,
   } = usePwaLifecycle();
   
-  const [people, setPeople] = useState<Person[]>([
-    { id: '1', name: t('personDefaultName'), items: [], individualDiscount: 0, plates: { ...INITIAL_PLATES } }
-  ]);
-  const [sharedItems, setSharedItems] = useState<Item[]>([]);
-  const [settings, setSettings] = useState<BillSettings>({
-    sharedDiscount: 0,
-    sharedDiscountType: 'amount',
-    hasServiceCharge: false,
-    hasVat: false,
-    isSushiroMode: false
-  });
+  const [initialBillState] = useState(loadInitialBillState);
+  const [people, setPeople] = useState<Person[]>(() => (
+    initialBillState?.people ?? [
+      {
+        id: '1',
+        name: t('personDefaultName'),
+        items: [],
+        individualDiscount: 0,
+        plates: { ...INITIAL_PLATES },
+      },
+    ]
+  ));
+  const [sharedItems, setSharedItems] = useState<Item[]>(
+    () => initialBillState?.sharedItems ?? [],
+  );
+  const [settings, setSettings] = useState<BillSettings>(
+    () => initialBillState?.settings ?? { ...INITIAL_SETTINGS },
+  );
+  const latestBillStateRef = useRef({ people, sharedItems, settings });
+  latestBillStateRef.current = { people, sharedItems, settings };
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('bill-splitter-theme');
@@ -132,24 +187,46 @@ export default function App() {
     }
   }, [people, selectedPersonForQR]);
 
-  // Persist state to local storage
   useEffect(() => {
-    const saved = localStorage.getItem('bill-splitter-state-v2');
-    if (saved) {
+    const saveLatestState = () => {
       try {
-        const parsed = JSON.parse(saved);
-        if (parsed.people) setPeople(parsed.people);
-        if (parsed.sharedItems) setSharedItems(parsed.sharedItems);
-        if (parsed.settings) setSettings(parsed.settings);
-      } catch (e) {
-        console.error("Failed to load state", e);
+        localStorage.setItem(
+          BILL_STATE_STORAGE_KEY,
+          JSON.stringify(latestBillStateRef.current),
+        );
+      } catch (error) {
+        console.error('Failed to save state', error);
       }
-    }
-  }, []);
+    };
+    const timeoutId = window.setTimeout(() => {
+      saveLatestState();
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [people, sharedItems, settings]);
 
   useEffect(() => {
-    localStorage.setItem('bill-splitter-state-v2', JSON.stringify({ people, sharedItems, settings }));
-  }, [people, sharedItems, settings]);
+    const flushLatestState = () => {
+      try {
+        localStorage.setItem(
+          BILL_STATE_STORAGE_KEY,
+          JSON.stringify(latestBillStateRef.current),
+        );
+      } catch (error) {
+        console.error('Failed to flush state', error);
+      }
+    };
+    const flushWhenHidden = () => {
+      if (document.visibilityState === 'hidden') flushLatestState();
+    };
+
+    window.addEventListener('pagehide', flushLatestState);
+    document.addEventListener('visibilitychange', flushWhenHidden);
+    return () => {
+      window.removeEventListener('pagehide', flushLatestState);
+      document.removeEventListener('visibilitychange', flushWhenHidden);
+    };
+  }, []);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -160,6 +237,16 @@ export default function App() {
       localStorage.setItem('bill-splitter-theme', 'light');
     }
   }, [isDarkMode]);
+
+  useEffect(() => {
+    const language = i18n.resolvedLanguage ?? i18n.language;
+    document.documentElement.lang = language;
+    try {
+      localStorage.setItem('bill-splitter-language', language);
+    } catch {
+      // The active language still applies when storage is unavailable.
+    }
+  }, [i18n.language, i18n.resolvedLanguage]);
 
   const addPerson = () => {
     vibrate(10);
@@ -202,11 +289,14 @@ export default function App() {
   };
 
   const updateItem = (personId: string, itemId: string, updates: Partial<Item>) => {
+    const safeUpdates = updates.price === undefined
+      ? updates
+      : { ...updates, price: sanitizeNonNegativeNumber(updates.price) };
     setPeople(people.map(p => {
       if (p.id === personId) {
         return {
           ...p,
-          items: p.items.map(item => item.id === itemId ? { ...item, ...updates } : item)
+          items: p.items.map(item => item.id === itemId ? { ...item, ...safeUpdates } : item)
         };
       }
       return p;
@@ -244,7 +334,11 @@ export default function App() {
   };
 
   const updateIndividualDiscount = (personId: string, discount: number) => {
-    setPeople(people.map(p => p.id === personId ? { ...p, individualDiscount: discount } : p));
+    setPeople(people.map(p => (
+      p.id === personId
+        ? { ...p, individualDiscount: sanitizeNonNegativeNumber(discount) }
+        : p
+    )));
   };
 
   const addSharedItem = () => {
@@ -255,7 +349,12 @@ export default function App() {
   };
 
   const updateSharedItem = (itemId: string, updates: Partial<Item>) => {
-    setSharedItems(prev => prev.map(item => item.id === itemId ? { ...item, ...updates } : item));
+    const safeUpdates = updates.price === undefined
+      ? updates
+      : { ...updates, price: sanitizeNonNegativeNumber(updates.price) };
+    setSharedItems(prev => prev.map(item => (
+      item.id === itemId ? { ...item, ...safeUpdates } : item
+    )));
   };
 
   const removeSharedItem = (itemId: string) => {
@@ -263,150 +362,10 @@ export default function App() {
     setSharedItems(prev => prev.filter(item => item.id !== itemId));
   };
 
-  const breakdown = useMemo((): CalculationBreakdown => {
-    const memberCount = people.length || 1;
-    const isAfterDiscount = settings.discountTiming === 'after';
-
-    let globalSubtotal = 0;
-    let globalDiscountableSubtotal = 0;
-    let globalServiceChargeTotal = 0;
-    let globalVatTotal = 0;
-    let globalGrandTotal = 0;
-    let totalIndividualDiscounts = 0;
-
-    // Helper to get effective items for a person
-    const getEffectiveItems = (person: Person) => {
-      const items: { price: number, noDiscount: boolean, noSC: boolean, noVAT: boolean }[] = [];
-      
-      // Individual items
-      person.items.forEach(item => {
-        items.push({
-          price: item.price || 0,
-          noDiscount: !!item.excludeDiscount,
-          noSC: !!item.excludeServiceCharge,
-          noVAT: !!item.excludeVat
-        });
-      });
-
-      // Sushiro Plates
-      if (settings.isSushiroMode && person.plates) {
-        let platesTotal = 0;
-        platesTotal += (person.plates.white * PLATE_PRICES.white);
-        platesTotal += (person.plates.red * PLATE_PRICES.red);
-        platesTotal += (person.plates.silver * PLATE_PRICES.silver);
-        platesTotal += (person.plates.gold * PLATE_PRICES.gold);
-        platesTotal += (person.plates.black * PLATE_PRICES.black);
-        if (platesTotal > 0) {
-          items.push({ price: platesTotal, noDiscount: false, noSC: false, noVAT: false });
-        }
-      }
-
-      // Shared items
-      sharedItems.forEach(sItem => {
-        items.push({
-          price: (sItem.price || 0) / memberCount,
-          noDiscount: !!sItem.excludeDiscount,
-          noSC: !!sItem.excludeServiceCharge,
-          noVAT: !!sItem.excludeVat
-        });
-      });
-
-      return items;
-    };
-
-    // 1. Calculate subtotals
-    people.forEach(p => {
-      const items = getEffectiveItems(p);
-      items.forEach(item => {
-        globalSubtotal += item.price;
-        if (!item.noDiscount) {
-          globalDiscountableSubtotal += item.price;
-        }
-      });
-      totalIndividualDiscounts += (p.individualDiscount || 0);
-    });
-
-    // 2. Calculate shared discount
-    const totalSharedDiscountValue = settings.sharedDiscountType === 'percentage'
-      ? globalDiscountableSubtotal * ((settings.sharedDiscount || 0) / 100)
-      : (settings.sharedDiscount || 0);
-    
-    const sharedDiscountPerPerson = totalSharedDiscountValue / memberCount;
-
-    // 3. Process each person
-    const peopleTotals = people.map(p => {
-      const items = getEffectiveItems(p);
-      const D_p = (p.individualDiscount || 0) + sharedDiscountPerPerson;
-
-      let finalShare = 0;
-      let personSC = 0;
-      let personVAT = 0;
-
-      if (isAfterDiscount) {
-        let personGross = 0;
-        let nonDiscountableGross = 0;
-
-        items.forEach(item => {
-          const itemSC = settings.hasServiceCharge && !item.noSC ? item.price * 0.10 : 0;
-          const itemVAT = settings.hasVat && !item.noVAT ? (item.price + itemSC) * 0.07 : 0;
-          const itemGross = item.price + itemSC + itemVAT;
-          
-          personGross += itemGross;
-          personSC += itemSC;
-          personVAT += itemVAT;
-          
-          if (item.noDiscount) {
-            nonDiscountableGross += itemGross;
-          }
-        });
-
-        finalShare = Math.max(nonDiscountableGross, personGross - D_p);
-      } else {
-        let personDiscountableTotal = 0;
-        items.forEach(item => {
-          if (!item.noDiscount) personDiscountableTotal += item.price;
-        });
-
-        const discountRatio = personDiscountableTotal > 0 
-          ? Math.max(0, personDiscountableTotal - D_p) / personDiscountableTotal 
-          : 1;
-
-        items.forEach(item => {
-          const afterDiscountPrice = item.noDiscount ? item.price : item.price * discountRatio;
-          const itemSC = settings.hasServiceCharge && !item.noSC ? afterDiscountPrice * 0.10 : 0;
-          const itemVAT = settings.hasVat && !item.noVAT ? (afterDiscountPrice + itemSC) * 0.07 : 0;
-          
-          finalShare += afterDiscountPrice + itemSC + itemVAT;
-          personSC += itemSC;
-          personVAT += itemVAT;
-        });
-      }
-
-      globalServiceChargeTotal += personSC;
-      globalVatTotal += personVAT;
-      globalGrandTotal += finalShare;
-
-      return {
-        personId: p.id,
-        finalShare
-      };
-    });
-
-    const sharedItemsTotal = sharedItems.reduce((acc, item) => acc + (item.price || 0), 0);
-    const sharedItemPerPerson = sharedItemsTotal / memberCount;
-
-    return {
-      subtotal: globalSubtotal,
-      sharedItemsTotal,
-      sharedItemPerPerson,
-      totalIndividualDiscounts,
-      totalSharedDiscount: totalSharedDiscountValue,
-      serviceChargeTotal: globalServiceChargeTotal,
-      vatTotal: globalVatTotal,
-      grandTotal: globalGrandTotal,
-      peopleTotals
-    };
-  }, [people, sharedItems, settings]);
+  const breakdown = useMemo(
+    () => calculateBill(people, sharedItems, settings),
+    [people, sharedItems, settings],
+  );
 
   const peopleTotalsById = useMemo(
     () => new Map(breakdown.peopleTotals.map(total => [total.personId, total])),
@@ -433,7 +392,7 @@ export default function App() {
     }
   }, [promptPayId, selectedMemberTotal]);
 
-  const copySummary = () => {
+  const copySummary = async () => {
     vibrate([10, 30, 10]);
     let text = t('copyTemplateSubtotal', { count: people.length });
 
@@ -447,16 +406,20 @@ export default function App() {
     });
     text += t('copyTemplateTotal', { total: breakdown.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) });
 
-    navigator.clipboard.writeText(text);
-    setShowCopied(true);
-    setTimeout(() => setShowCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(text);
+      setShowCopied(true);
+      setTimeout(() => setShowCopied(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy summary', error);
+    }
   };
 
   const resetAll = () => {
     vibrate([30, 50, 30]);
     setPeople([{ id: '1', name: t('personDefaultName'), items: [], individualDiscount: 0, plates: { ...INITIAL_PLATES } }]);
     setSharedItems([]);
-    setSettings({ sharedDiscount: 0, sharedDiscountType: 'amount', hasServiceCharge: false, hasVat: false, isSushiroMode: false });
+    setSettings({ ...INITIAL_SETTINGS });
     setShowResetConfirm(false);
   };
 
@@ -467,6 +430,14 @@ export default function App() {
       alert("Canvas element not found");
       return;
     }
+    if (
+      typeof ClipboardItem === 'undefined'
+      || typeof navigator.clipboard?.write !== 'function'
+    ) {
+      downloadQRImage(memberId, name);
+      return;
+    }
+
     try {
       // Modern Safari & standard-compliant way to write async content to clipboard:
       // Passing a Promise to ClipboardItem resolves the iOS Safari permission block.
@@ -500,12 +471,21 @@ export default function App() {
   };
 
   const fallbackCopyQR = (canvas: HTMLCanvasElement, memberId: string, name: string) => {
-    try {
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          downloadQRImage(memberId, name);
-          return;
-        }
+    if (
+      typeof ClipboardItem === 'undefined'
+      || typeof navigator.clipboard?.write !== 'function'
+    ) {
+      downloadQRImage(memberId, name);
+      return;
+    }
+
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        downloadQRImage(memberId, name);
+        return;
+      }
+
+      try {
         const item = new ClipboardItem({ 'image/png': blob });
         navigator.clipboard.write([item])
           .then(() => {
@@ -516,11 +496,11 @@ export default function App() {
             console.error("Fallback Clipboard copy failed:", err);
             downloadQRImage(memberId, name);
           });
-      }, 'image/png');
-    } catch (err) {
-      console.error(err);
-      downloadQRImage(memberId, name);
-    }
+      } catch (error) {
+        console.error('Fallback ClipboardItem construction failed:', error);
+        downloadQRImage(memberId, name);
+      }
+    }, 'image/png');
   };
 
   const downloadQRImage = (memberId: string, name: string) => {
@@ -538,8 +518,20 @@ export default function App() {
     }
   };
 
-  const triggerSpectacularEffect = () => {
+  const triggerSpectacularEffect = async () => {
     vibrate([30, 50, 30, 50, 30, 50, 30]);
+    let confetti: typeof import('canvas-confetti');
+    try {
+      const confettiModule = await import('canvas-confetti');
+      confetti = (
+        (
+          confettiModule as unknown as {default?: typeof import('canvas-confetti')}
+        ).default ?? confettiModule
+      ) as typeof import('canvas-confetti');
+    } catch (error) {
+      console.error('Failed to load celebration effect', error);
+      return;
+    }
     const duration = 3 * 1000;
     const end = Date.now() + duration;
 
@@ -571,79 +563,88 @@ export default function App() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setIsScanning(true);
     try {
-      setIsScanning(true);
-      const reader = new FileReader();
-      
-      reader.onloadend = async () => {
-        const base64Data = reader.result as string;
-        // strip data:image/...;base64,
-        const base64Image = base64Data.split(',')[1];
-        
-        try {
-          const { scanReceipt } = await import('./services/receiptScanner');
-          const items = await scanReceipt(base64Image, file.type);
-          if (items && items.length > 0) {
-            // Remove the default person if it's empty
-            const currentPeople = people.length === 1 && people[0].name === t('personDefaultName') && people[0].items.length === 0 
-              ? [] 
-              : people;
+      if (!file.type.startsWith('image/')) {
+        throw new Error('The selected file is not an image.');
+      }
+      if (file.size > MAX_RECEIPT_IMAGE_BYTES) {
+        throw new Error('Receipt images must be 10 MB or smaller.');
+      }
 
-            const newPeople: Person[] = [];
-            const splitQuantities = settings.splitScanItemsByQuantity !== false;
+      const base64Data = await readFileAsDataUrl(file);
+      const dataDelimiterIndex = base64Data.indexOf(',');
+      if (dataDelimiterIndex < 0) {
+        throw new Error('Receipt image data is invalid.');
+      }
+      const base64Image = base64Data.slice(dataDelimiterIndex + 1);
+      if (!base64Image) {
+        throw new Error('Receipt image data is empty.');
+      }
 
-            items.forEach(item => {
-              const qty = (item.quantity && item.quantity > 0) ? item.quantity : 1;
-              const unitPrice = item.price / qty;
-              
-              if (splitQuantities) {
-                for (let i = 0; i < qty; i++) {
-                  newPeople.push({
-                    id: crypto.randomUUID(),
-                    name: item.name,
-                    items: [{ id: crypto.randomUUID(), name: item.name, price: unitPrice }],
-                    individualDiscount: 0,
-                    plates: { ...INITIAL_PLATES }
-                  });
-                }
-              } else {
-                const personItems = [];
-                for (let i = 0; i < qty; i++) {
-                  personItems.push({ id: crypto.randomUUID(), name: item.name, price: unitPrice });
-                }
-                newPeople.push({
-                  id: crypto.randomUUID(),
-                  name: item.name,
-                  items: personItems,
-                  individualDiscount: 0,
-                  plates: { ...INITIAL_PLATES }
-                });
-              }
+      const { scanReceipt } = await import('./services/receiptScanner');
+      const items = await scanReceipt(base64Image, file.type);
+      const scannedUnitCount = items.reduce((total, item) => total + item.quantity, 0);
+      if (scannedUnitCount > MAX_SCANNED_UNITS) {
+        throw new Error(`Receipt contains more than ${MAX_SCANNED_UNITS} units.`);
+      }
+
+      if (items.length > 0) {
+        const newPeople: Person[] = [];
+        const splitQuantities = settings.splitScanItemsByQuantity !== false;
+
+        items.forEach((item) => {
+          const unitPrice = item.price / item.quantity;
+
+          if (splitQuantities) {
+            for (let i = 0; i < item.quantity; i++) {
+              newPeople.push({
+                id: crypto.randomUUID(),
+                name: item.name,
+                items: [{ id: crypto.randomUUID(), name: item.name, price: unitPrice }],
+                individualDiscount: 0,
+                plates: { ...INITIAL_PLATES }
+              });
+            }
+          } else {
+            const personItems = [];
+            for (let i = 0; i < item.quantity; i++) {
+              personItems.push({ id: crypto.randomUUID(), name: item.name, price: unitPrice });
+            }
+            newPeople.push({
+              id: crypto.randomUUID(),
+              name: item.name,
+              items: personItems,
+              individualDiscount: 0,
+              plates: { ...INITIAL_PLATES }
             });
-
-            // Make sure not to be in Sushiro mode
-            setSettings(prev => ({ ...prev, isSushiroMode: false }));
-            setPeople([...currentPeople, ...newPeople]);
-            vibrate([10, 30, 20]);
           }
-        } catch (err) {
-          console.error(err);
-          const errorMessage = err instanceof Error ? err.message : String(err);
-          alert(`${t('scanFailed')}\n\nDetails: ${errorMessage}`);
-          vibrate([30, 50, 30]);
-        } finally {
-          setIsScanning(false);
-          // Reset file input
-          if (fileInputRef.current) fileInputRef.current.value = '';
-        }
-      };
+        });
 
-      reader.readAsDataURL(file);
+        setSettings(prev => ({ ...prev, isSushiroMode: false }));
+        setPeople((currentPeople) => {
+          const defaultPersonNames = [
+            i18n.getFixedT('en')('personDefaultName'),
+            i18n.getFixedT('th')('personDefaultName'),
+          ];
+
+          return [
+            ...(shouldReplaceStarterPerson(currentPeople, defaultPersonNames)
+              ? []
+              : currentPeople),
+            ...newPeople,
+          ];
+        });
+        vibrate([10, 30, 20]);
+      }
     } catch (err) {
       console.error(err);
-      alert(t('scanFailed'));
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      alert(`${t('scanFailed')}\n\nDetails: ${errorMessage}`);
       vibrate([30, 50, 30]);
+    } finally {
       setIsScanning(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -666,8 +667,13 @@ export default function App() {
               />
             </button>
             <div>
-              <p className="text-xs uppercase tracking-wider text-indigo-600 font-extrabold mt-1">
-                {settings.isSushiroMode ? `🍣 ${t('sushiroMode')}` : `🍛 ${t('smartSplitter')}`}
+              <p className="flex items-center gap-2 text-indigo-600 font-extrabold">
+                <span className="text-2xl leading-none" aria-hidden="true">
+                  {settings.isSushiroMode ? '🍣' : '🍛'}
+                </span>
+                <span className="text-xs uppercase tracking-wider">
+                  {settings.isSushiroMode ? t('sushiroMode') : t('smartSplitter')}
+                </span>
               </p>
             </div>
           </div>
@@ -675,7 +681,8 @@ export default function App() {
             <button
               onClick={() => { vibrate(10); i18n.changeLanguage(i18n.language === 'th' ? 'en' : 'th'); }}
               className="w-11 h-11 flex items-center justify-center shrink-0 rounded-xl border border-slate-200 bg-white/80 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors text-xs font-bold uppercase tracking-widest shadow-sm"
-              title="Change Language"
+              aria-label={t('changeLanguage')}
+              title={t('changeLanguage')}
             >
               {i18n.language === 'th' ? 'EN' : 'TH'}
             </button>
@@ -863,7 +870,14 @@ export default function App() {
                     className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${settings.sharedDiscountType === 'amount' || !settings.sharedDiscountType ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                   >฿</button>
                   <button 
-                    onClick={() => { vibrate(10); setSettings({ ...settings, sharedDiscountType: 'percentage' }); }}
+                    onClick={() => {
+                      vibrate(10);
+                      setSettings({
+                        ...settings,
+                        sharedDiscountType: 'percentage',
+                        sharedDiscount: sanitizeNonNegativeNumber(settings.sharedDiscount, 100),
+                      });
+                    }}
                     className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${settings.sharedDiscountType === 'percentage' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                   >%</button>
                 </div>
@@ -872,8 +886,17 @@ export default function App() {
                 <input 
                   type="number"
                   inputMode="decimal"
+                  min="0"
+                  max={settings.sharedDiscountType === 'percentage' ? 100 : undefined}
+                  step="0.01"
                   value={settings.sharedDiscount || ''}
-                  onChange={(e) => setSettings({ ...settings, sharedDiscount: Number(e.target.value) })}
+                  onChange={(e) => setSettings({
+                    ...settings,
+                    sharedDiscount: sanitizeNonNegativeNumber(
+                      Number(e.target.value),
+                      settings.sharedDiscountType === 'percentage' ? 100 : Number.POSITIVE_INFINITY,
+                    ),
+                  })}
                   className="w-full h-11 glass-input rounded-xl px-4 font-bold text-base text-slate-900 placeholder:text-slate-500"
                   placeholder="0.00"
                 />
@@ -979,6 +1002,8 @@ export default function App() {
                       <input 
                         type="number"
                         inputMode="decimal"
+                        min="0"
+                        step="0.01"
                         value={item.price || ''}
                         onChange={(e) => updateSharedItem(item.id, { price: Number(e.target.value) })}
                         className="w-20 sm:w-24 text-base font-extrabold glass-input rounded-xl px-2 sm:px-3 py-2 focus:ring-2 focus:ring-indigo-500 text-right text-slate-900 focus:scale-[1.03] transition-transform"
@@ -1125,6 +1150,8 @@ export default function App() {
                                   <input 
                                     type="number"
                                     inputMode="decimal"
+                                    min="0"
+                                    step="0.01"
                                     value={item.price || ''}
                                     onChange={(e) => updateItem(person.id, item.id, { price: Number(e.target.value) })}
                                     className="w-20 sm:w-24 text-base font-extrabold glass-input rounded-xl px-2 sm:px-3 py-2 focus:ring-2 focus:ring-indigo-500 text-right text-slate-900 focus:scale-[1.03] transition-transform"
@@ -1242,6 +1269,8 @@ export default function App() {
                         <input 
                           type="number"
                           inputMode="decimal"
+                          min="0"
+                          step="0.01"
                           value={person.individualDiscount || ''}
                           onChange={(e) => updateIndividualDiscount(person.id, Number(e.target.value))}
                           className="w-full text-base font-bold glass-input rounded-[1rem] px-4 py-2.5 placeholder:text-slate-500 text-slate-900"
@@ -1353,7 +1382,11 @@ export default function App() {
                   <span>{t('totalDiscounts')}</span>
                   {(settings.hasServiceCharge || settings.hasVat) && (
                     <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
-                      {settings.discountTiming === 'after' ? 'หลัง SC/VAT' : 'ก่อน SC/VAT'}
+                      {t(
+                        settings.discountTiming === 'after'
+                          ? 'discountTimingAfter'
+                          : 'discountTimingBefore',
+                      )}
                     </span>
                   )}
                 </span>
@@ -1365,13 +1398,13 @@ export default function App() {
               <div className="pt-2 flex flex-col gap-3">
                 {settings.hasServiceCharge && (
                   <div className="flex justify-between items-center text-slate-400">
-                    <span>Service Charge (10%)</span>
+                    <span>{t('serviceCharge')} (10%)</span>
                     <span className="text-indigo-200">฿{breakdown.serviceChargeTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                   </div>
                 )}
                 {settings.hasVat && (
                   <div className="flex justify-between items-center text-slate-400">
-                    <span>VAT (7%)</span>
+                    <span>{t('vat')} (7%)</span>
                     <span className="text-indigo-200">฿{breakdown.vatTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                   </div>
                 )}
@@ -1463,14 +1496,14 @@ export default function App() {
 
             <section className="glass-card rounded-[2.5rem] p-8 text-center space-y-6 relative overflow-hidden flex flex-col items-center">
               {selectedMemberTotal <= 0 ? (
-                <div className="py-12 text-slate-400 font-semibold text-center select-none space-y-3 w-full">
-                  <ReceiptText size={48} className="mx-auto opacity-30 text-slate-600" />
-                  <p className="text-sm">{t('invalidAmount')}</p>
+                <div className="w-full rounded-3xl border border-slate-200 bg-slate-100/80 p-6 py-12 text-center font-semibold text-slate-600 select-none space-y-3 dark:border-slate-600/80 dark:bg-slate-900/75 dark:text-slate-200">
+                  <ReceiptText size={48} className="mx-auto text-slate-500 dark:text-slate-300" />
+                  <p className="text-sm leading-relaxed">{t('invalidAmount')}</p>
                 </div>
               ) : !promptPayId ? (
-                <div className="py-12 bg-amber-50/50 border border-amber-100 rounded-3xl p-6 text-amber-600 font-semibold text-center select-none space-y-3 w-full">
-                  <Phone size={48} className="mx-auto opacity-45 text-amber-500" />
-                  <p className="text-sm">{t('enterPromptPayFirst')}</p>
+                <div className="w-full rounded-3xl border border-amber-200 bg-amber-50/90 p-6 py-12 text-center font-semibold text-amber-800 select-none space-y-3 dark:border-amber-700/80 dark:bg-amber-950/60 dark:text-amber-100">
+                  <Phone size={48} className="mx-auto text-amber-600 dark:text-amber-300" />
+                  <p className="text-sm leading-relaxed">{t('enterPromptPayFirst')}</p>
                 </div>
               ) : (
                 <>

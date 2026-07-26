@@ -1,8 +1,8 @@
 {
   "translation": {
-    "sushiroMode": "Sushiro Mode",
-    "smartSplitter": "Bill-split Mode",
-    "toggleSushiro": "สลับโหมด Sushiro",
+    "sushiroMode": "Sushiro",
+    "smartSplitter": "Spliittrr",
+    "toggleSushiro": "สลับ Sushiro",
     "clearAll": "ล้างข้อมูลทั้งหมด",
     "clearConfirmTitle": "ล้างข้อมูลทั้งหมด?",
     "clearConfirmDesc": "ข้อมูลรายการอาหารและชื่อสมาชิกทุกคนจะถูกลบออก และไม่สามารถกู้คืนได้",
@@ -63,6 +63,7 @@
     "retryUpdate": "ลองอีกครั้ง",
     "updateFailed": "อัปเดตไม่สำเร็จ กรุณาลองอีกครั้ง",
     "toggleTheme": "สลับธีมสว่างและมืด",
+    "changeLanguage": "เปลี่ยนภาษา",
     "discount": "ส่วนลด",
     "serviceCharge": "Service Charge",
     "vat": "VAT"

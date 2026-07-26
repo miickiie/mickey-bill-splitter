@@ -1,5 +1,5 @@
 {
-  "name": "react-example",
+  "name": "mickey-bill-splitter",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,7 +10,7 @@
     "clean": "rm -rf dist",
     "icons": "node create-pwa-icons.js",
     "lint": "tsc --noEmit",
-    "test": "npm run lint && node --check github-pages-retirement/retire.js && node --check github-pages-retirement/sw.js",
+    "test": "npm run lint && node --experimental-strip-types --test src/*.test.ts && node --check github-pages-retirement/retire.js && node --check github-pages-retirement/sw.js",
     "firebase:login": "firebase login",
     "firebase:serve": "firebase emulators:start --only hosting",
     "deploy:hosting": "firebase deploy --only hosting --project spliittrr"

@@ -1,7 +1,7 @@
 {
-  "short_name": "BillSplitter",
-  "name": "Bill Splitter - หารค่าอาหาร & พร้อมเพย์ QR",
-  "description": "Easy bill calculator with individual items, shared menu split, PromptPay QR generator and Sushiro mode.",
+  "short_name": "Spliittrr",
+  "name": "Spliittrr - หารค่าอาหาร & พร้อมเพย์ QR",
+  "description": "Easy bill calculator with individual items, shared menu split, PromptPay QR generator and Sushiro plate calculator.",
   "icons": [
     {
       "src": "./icon-192.png",

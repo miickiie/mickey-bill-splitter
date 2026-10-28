@@ -174,3 +174,20 @@ test('includes Sushiro plates and sanitizes invalid numbers', () => {
   assert.equal(result.totalSharedDiscount, 0);
   assert.equal(result.grandTotal, 130);
 });
+
+test('supports custom service charge and VAT rates', () => {
+  const result = calculateBill(
+    [person('one', [item('meal', 100)])],
+    [],
+    settings({
+      hasServiceCharge: true,
+      serviceChargeRate: 5,
+      hasVat: true,
+      vatRate: 10,
+    }),
+  );
+
+  assertClose(result.serviceChargeTotal, 5);
+  assertClose(result.vatTotal, 10.5);
+  assertClose(result.grandTotal, 115.5);
+});

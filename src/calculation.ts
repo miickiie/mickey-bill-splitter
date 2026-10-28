@@ -53,13 +53,9 @@ const getPlateTotal = (person: Person) => {
   );
 };
 
-const calculateGrossItem = (item: EffectiveItem, settings: BillSettings) => {
-  const serviceCharge = settings.hasServiceCharge && !item.noServiceCharge
-    ? item.price * 0.1
-    : 0;
-  const vat = settings.hasVat && !item.noVat
-    ? (item.price + serviceCharge) * 0.07
-    : 0;
+const calculateGrossItem = (item: EffectiveItem, scRate: number, vatRate: number) => {
+  const serviceCharge = !item.noServiceCharge ? item.price * scRate : 0;
+  const vat = !item.noVat ? (item.price + serviceCharge) * vatRate : 0;
 
   return {
     gross: item.price + serviceCharge + vat,
@@ -75,6 +71,12 @@ export function calculateBill(
 ): CalculationBreakdown {
   const memberCount = people.length || 1;
   const isAfterDiscount = settings.discountTiming === 'after';
+  const scRate = settings.hasServiceCharge
+    ? sanitizeNonNegativeNumber(settings.serviceChargeRate ?? 10) / 100
+    : 0;
+  const vatRate = settings.hasVat
+    ? sanitizeNonNegativeNumber(settings.vatRate ?? 7) / 100
+    : 0;
   const effectiveSharedItems = sharedItems.map(item => toEffectiveItem(item, memberCount));
 
   const contexts: PersonContext[] = people.map((person) => {
@@ -101,7 +103,7 @@ export function calculateBill(
     items.forEach((item) => {
       if (!item.noDiscount) discountableSubtotal += item.price;
 
-      const grossItem = calculateGrossItem(item, settings);
+      const grossItem = calculateGrossItem(item, scRate, vatRate);
       gross += grossItem.gross;
       serviceCharge += grossItem.serviceCharge;
       vat += grossItem.vat;
@@ -179,7 +181,7 @@ export function calculateBill(
           ...item,
           price: item.noDiscount ? item.price : item.price * discountRatio,
         };
-        const grossItem = calculateGrossItem(discountedItem, settings);
+        const grossItem = calculateGrossItem(discountedItem, scRate, vatRate);
         finalShare += grossItem.gross;
         serviceChargeTotal += grossItem.serviceCharge;
         vatTotal += grossItem.vat;

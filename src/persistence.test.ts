@@ -37,4 +37,29 @@ test('sanitizes persisted numeric values and optional settings', () => {
   assert.equal(result.people[0].plates?.white, 1);
   assert.equal(result.settings.sharedDiscount, 100);
   assert.equal(result.settings.discountTiming, 'before');
+  assert.equal(result.settings.serviceChargeRate, 10);
+  assert.equal(result.settings.vatRate, 7);
+});
+
+test('persists custom service charge and vat rates', () => {
+  const result = parseStoredBillState(JSON.stringify({
+    people: [{
+      id: 'one',
+      name: 'One',
+      items: [],
+      individualDiscount: 0,
+    }],
+    sharedItems: [],
+    settings: {
+      sharedDiscount: 0,
+      hasServiceCharge: true,
+      serviceChargeRate: 15,
+      hasVat: true,
+      vatRate: 10,
+    },
+  }));
+
+  assert.ok(result);
+  assert.equal(result.settings.serviceChargeRate, 15);
+  assert.equal(result.settings.vatRate, 10);
 });

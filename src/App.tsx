@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, type ChangeEvent } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback, type ChangeEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -12,14 +12,12 @@ import {
   X,
   Share2,
   Copy,
-  Minus,
   Camera,
   QrCode,
   Phone,
   ArrowLeft,
   Download,
   UtensilsCrossed,
-  SlidersHorizontal,
   Instagram
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -30,6 +28,11 @@ import { usePwaLifecycle } from './hooks/usePwaLifecycle';
 import { calculateBill, sanitizeNonNegativeNumber } from './calculation';
 import { BILL_STATE_STORAGE_KEY, parseStoredBillState } from './persistence';
 import { shouldReplaceStarterPerson } from './people';
+import { CalculatorKeypad } from './components/CalculatorKeypad';
+import { ItemRow } from './components/ItemRow';
+import { SushiroPlateSelector } from './components/SushiroPlateSelector';
+
+let cachedConfetti: typeof import('canvas-confetti') | null = null;
 
 const INITIAL_PLATES: Plates = {
   white: 0,
@@ -44,7 +47,9 @@ const INITIAL_SETTINGS: BillSettings = {
   sharedDiscountType: 'amount',
   discountTiming: 'before',
   hasServiceCharge: false,
+  serviceChargeRate: 10,
   hasVat: false,
+  vatRate: 7,
   isSushiroMode: false,
   splitScanItemsByQuantity: true,
 };
@@ -61,6 +66,15 @@ interface WindowWithTelegramHaptics extends Window {
       };
     };
   };
+}
+
+interface ActiveKeypadState {
+  id: string;
+  title: string;
+  initialValue: number;
+  unit: '฿' | '%';
+  max?: number;
+  onConfirm: (val: number) => void;
 }
 
 const readFileAsDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
@@ -166,10 +180,11 @@ export default function App() {
     }
     return '';
   });
-  const [selectedPersonForQR, setSelectedPersonForQR] = useState<string>('1');
+  const [selectedPersonForQR, setSelectedPersonForQR] = useState<string>(() => initialBillState?.people?.[0]?.id ?? '1');
   const [copiedQRId, setCopiedQRId] = useState<string | null>(null);
   const [focusTargetItemId, setFocusTargetItemId] = useState<string | null>(null);
   const [expandedItemOptionsId, setExpandedItemOptionsId] = useState<string | null>(null);
+  const [activeKeypad, setActiveKeypad] = useState<ActiveKeypadState | null>(null);
   // Persist promptPayId
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -248,119 +263,182 @@ export default function App() {
     }
   }, [i18n.language, i18n.resolvedLanguage]);
 
-  const addPerson = () => {
+  const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const copyQRTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyQRTimeoutRef.current) {
+        window.clearTimeout(copyQRTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const addPerson = useCallback(() => {
     vibrate(10);
     const newFoodItemId = crypto.randomUUID();
-    const newPerson: Person = {
-      id: crypto.randomUUID(),
-      name: t('newMemberDefaultName', { count: people.length + 1 }),
-      items: [{ id: newFoodItemId, name: '', price: 0 }],
-      individualDiscount: 0,
-      plates: { ...INITIAL_PLATES }
-    };
-    setPeople([...people, newPerson]);
+    setPeople((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        name: t('newMemberDefaultName', { count: prev.length + 1 }),
+        items: [{ id: newFoodItemId, name: '', price: 0 }],
+        individualDiscount: 0,
+        plates: { ...INITIAL_PLATES },
+      },
+    ]);
     setFocusTargetItemId(newFoodItemId);
-  };
+  }, [t]);
 
-  const removePerson = (id: string) => {
-    if (people.length > 1) {
+  const removePerson = useCallback((id: string) => {
+    setPeople((prev) => {
+      if (prev.length <= 1) return prev;
       vibrate([20, 50, 20]);
-      setPeople(people.filter(p => p.id !== id));
-    }
-  };
+      return prev.filter(p => p.id !== id);
+    });
+  }, []);
 
-  const updatePersonName = (id: string, name: string) => {
-    setPeople(people.map(p => p.id === id ? { ...p, name } : p));
-  };
+  const updatePersonName = useCallback((id: string, name: string) => {
+    setPeople(prev => prev.map(p => p.id === id ? { ...p, name } : p));
+  }, []);
 
-  const addItem = (personId: string) => {
+  const addItem = useCallback((personId: string) => {
     vibrate(10);
     const newItemId = crypto.randomUUID();
-    setPeople(people.map(p => {
+    setPeople(prev => prev.map(p => {
       if (p.id === personId) {
         return {
           ...p,
-          items: [...p.items, { id: newItemId, name: '', price: 0 }]
+          items: [...p.items, { id: newItemId, name: '', price: 0 }],
         };
       }
       return p;
     }));
     setFocusTargetItemId(newItemId);
-  };
+  }, []);
 
-  const updateItem = (personId: string, itemId: string, updates: Partial<Item>) => {
+  const updateItem = useCallback((personId: string, itemId: string, updates: Partial<Item>) => {
     const safeUpdates = updates.price === undefined
       ? updates
       : { ...updates, price: sanitizeNonNegativeNumber(updates.price) };
-    setPeople(people.map(p => {
+    setPeople(prev => prev.map(p => {
       if (p.id === personId) {
         return {
           ...p,
-          items: p.items.map(item => item.id === itemId ? { ...item, ...safeUpdates } : item)
+          items: p.items.map(item => item.id === itemId ? { ...item, ...safeUpdates } : item),
         };
       }
       return p;
     }));
-  };
+  }, []);
 
-  const removeItem = (personId: string, itemId: string) => {
+  const removeItem = useCallback((personId: string, itemId: string) => {
     vibrate([20, 50, 20]);
-    setPeople(people.map(p => {
+    setPeople(prev => prev.map(p => {
       if (p.id === personId) {
         return {
           ...p,
-          items: p.items.filter(item => item.id !== itemId)
+          items: p.items.filter(item => item.id !== itemId),
         };
       }
       return p;
     }));
-  };
+  }, []);
 
-  const updatePlateCount = (personId: string, color: keyof Plates, delta: number) => {
+  const updatePlateCount = useCallback((personId: string, color: keyof Plates, delta: number) => {
     vibrate(10);
-    setPeople(people.map(p => {
+    setPeople(prev => prev.map(p => {
       if (p.id === personId) {
         const plates = p.plates || { ...INITIAL_PLATES };
         return {
           ...p,
           plates: {
             ...plates,
-            [color]: Math.max(0, plates[color] + delta)
-          }
+            [color]: Math.max(0, plates[color] + delta),
+          },
         };
       }
       return p;
     }));
-  };
+  }, []);
 
-  const updateIndividualDiscount = (personId: string, discount: number) => {
-    setPeople(people.map(p => (
+  const updateIndividualDiscount = useCallback((personId: string, discount: number) => {
+    setPeople(prev => prev.map(p => (
       p.id === personId
         ? { ...p, individualDiscount: sanitizeNonNegativeNumber(discount) }
         : p
     )));
-  };
+  }, []);
 
-  const addSharedItem = () => {
+  const addSharedItem = useCallback(() => {
     vibrate(10);
     const newItemId = crypto.randomUUID();
     setSharedItems(prev => [...prev, { id: newItemId, name: '', price: 0 }]);
     setFocusTargetItemId(newItemId);
-  };
+  }, []);
 
-  const updateSharedItem = (itemId: string, updates: Partial<Item>) => {
+  const updateSharedItem = useCallback((itemId: string, updates: Partial<Item>) => {
     const safeUpdates = updates.price === undefined
       ? updates
       : { ...updates, price: sanitizeNonNegativeNumber(updates.price) };
     setSharedItems(prev => prev.map(item => (
       item.id === itemId ? { ...item, ...safeUpdates } : item
     )));
-  };
+  }, []);
 
-  const removeSharedItem = (itemId: string) => {
+  const removeSharedItem = useCallback((itemId: string) => {
     vibrate([20, 50, 20]);
     setSharedItems(prev => prev.filter(item => item.id !== itemId));
-  };
+  }, []);
+
+  const openKeypad = useCallback((
+    id: string,
+    title: string,
+    initialValue: number,
+    onConfirm: (val: number) => void,
+    unit: '฿' | '%' = '฿',
+    max?: number,
+  ) => {
+    vibrate(10);
+    setActiveKeypad({
+      id,
+      title,
+      initialValue,
+      unit,
+      max,
+      onConfirm,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!focusTargetItemId) return;
+    const shared = sharedItems.find(i => i.id === focusTargetItemId);
+    if (shared) {
+      openKeypad(
+        `shared-${shared.id}`,
+        shared.name || t('addSharedItem'),
+        shared.price || 0,
+        (val) => updateSharedItem(shared.id, { price: val }),
+        '฿',
+      );
+      setFocusTargetItemId(null);
+      return;
+    }
+    for (const p of people) {
+      const item = p.items.find(i => i.id === focusTargetItemId);
+      if (item) {
+        openKeypad(
+          `item-${p.id}-${item.id}`,
+          `${p.name} (${t('addItem')})`,
+          item.price || 0,
+          (val) => updateItem(p.id, item.id, { price: val }),
+          '฿',
+        );
+        setFocusTargetItemId(null);
+        return;
+      }
+    }
+  }, [focusTargetItemId, sharedItems, people, t, openKeypad, updateSharedItem, updateItem]);
 
   const breakdown = useMemo(
     () => calculateBill(people, sharedItems, settings),
@@ -382,15 +460,18 @@ export default function App() {
   }, [peopleTotalsById, selectedMember]);
 
   const qrPayload = useMemo(() => {
-    if (!promptPayId || selectedMemberTotal <= 0) return '';
+    if (currentView !== 'qr' || !promptPayId.trim() || selectedMemberTotal <= 0) return '';
     try {
       const cleanId = promptPayId.replace(/[^0-9]/g, '');
+      if (cleanId.length !== 10 && cleanId.length !== 13 && cleanId.length !== 15) {
+        return '';
+      }
       return generatePayload(cleanId, { amount: selectedMemberTotal });
     } catch (e) {
       console.error("Failed to generate PromptPay payload", e);
       return '';
     }
-  }, [promptPayId, selectedMemberTotal]);
+  }, [currentView, promptPayId, selectedMemberTotal]);
 
   const copySummary = async () => {
     vibrate([10, 30, 10]);
@@ -401,10 +482,15 @@ export default function App() {
     }
 
     people.forEach(p => {
-      const share = peopleTotalsById.get(p.id)?.finalShare || 0;
+      const share = peopleTotalsById.get(p.id)?.finalShare ?? 0;
       text += `👤 ${p.name}: ฿${share.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
     });
     text += t('copyTemplateTotal', { total: breakdown.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) });
+
+    const cleanPromptPay = promptPayId.trim();
+    if (cleanPromptPay) {
+      text += t('promptPayInSummary', { id: cleanPromptPay });
+    }
 
     try {
       await navigator.clipboard.writeText(text);
@@ -420,123 +506,80 @@ export default function App() {
     setPeople([{ id: '1', name: t('personDefaultName'), items: [], individualDiscount: 0, plates: { ...INITIAL_PLATES } }]);
     setSharedItems([]);
     setSettings({ ...INITIAL_SETTINGS });
+    setSelectedPersonForQR('1');
     setShowResetConfirm(false);
   };
 
-  const copyQRToClipboard = (memberId: string, name: string) => {
-    vibrate([10, 30, 10]);
-    const canvas = document.getElementById(`qr-canvas-${memberId}`) as HTMLCanvasElement;
-    if (!canvas) {
-      alert("Canvas element not found");
-      return;
-    }
-    if (
-      typeof ClipboardItem === 'undefined'
-      || typeof navigator.clipboard?.write !== 'function'
-    ) {
-      downloadQRImage(memberId, name);
-      return;
-    }
-
-    try {
-      // Modern Safari & standard-compliant way to write async content to clipboard:
-      // Passing a Promise to ClipboardItem resolves the iOS Safari permission block.
-      const imagePromise = new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob((blob) => {
-          if (blob) {
-            resolve(blob);
-          } else {
-            reject(new Error('Canvas toBlob returned null'));
-          }
-        }, 'image/png');
-      });
-
-      const item = new ClipboardItem({ 'image/png': imagePromise });
-      
-      navigator.clipboard.write([item])
-        .then(() => {
-          setCopiedQRId(memberId);
-          setTimeout(() => setCopiedQRId(null), 2000);
-        })
-        .catch((err) => {
-          console.error("Clipboard copy failed with Promise:", err);
-          // Fallback
-          fallbackCopyQR(canvas, memberId, name);
-        });
-    } catch (e) {
-      console.error("ClipboardItem promise construction not supported:", e);
-      // Fallback
-      fallbackCopyQR(canvas, memberId, name);
-    }
-  };
-
-  const fallbackCopyQR = (canvas: HTMLCanvasElement, memberId: string, name: string) => {
-    if (
-      typeof ClipboardItem === 'undefined'
-      || typeof navigator.clipboard?.write !== 'function'
-    ) {
-      downloadQRImage(memberId, name);
-      return;
-    }
-
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        downloadQRImage(memberId, name);
-        return;
-      }
-
-      try {
-        const item = new ClipboardItem({ 'image/png': blob });
-        navigator.clipboard.write([item])
-          .then(() => {
-            setCopiedQRId(memberId);
-            setTimeout(() => setCopiedQRId(null), 2000);
-          })
-          .catch((err) => {
-            console.error("Fallback Clipboard copy failed:", err);
-            downloadQRImage(memberId, name);
-          });
-      } catch (error) {
-        console.error('Fallback ClipboardItem construction failed:', error);
-        downloadQRImage(memberId, name);
-      }
-    }, 'image/png');
-  };
-
-  const downloadQRImage = (memberId: string, name: string) => {
+  const downloadQRImage = useCallback((name?: string) => {
     vibrate(10);
-    const canvas = document.getElementById(`qr-canvas-${memberId}`) as HTMLCanvasElement;
+    const canvas = qrCanvasRef.current;
     if (!canvas) return;
     try {
       const url = canvas.toDataURL('image/png');
+      const safeName = (name || 'Member').replace(/[/\\?%*:|"<>]/g, '-').trim();
       const link = document.createElement('a');
-      link.download = `PromptPay-QR-${name || 'Member'}.png`;
+      link.download = `PromptPay-QR-${safeName}.png`;
       link.href = url;
       link.click();
     } catch (e) {
-      console.error(e);
+      console.error('Download QR failed', e);
     }
-  };
+  }, []);
+
+  const copyQRToClipboard = useCallback(async (memberId?: string, name?: string) => {
+    vibrate([10, 30, 10]);
+    const canvas = qrCanvasRef.current;
+    if (!canvas) return;
+
+    if (
+      typeof ClipboardItem === 'undefined'
+      || typeof navigator.clipboard?.write !== 'function'
+    ) {
+      downloadQRImage(name);
+      return;
+    }
+
+    try {
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, 'image/png');
+      });
+      if (!blob) {
+        downloadQRImage(name);
+        return;
+      }
+
+      const item = new ClipboardItem({ 'image/png': blob });
+      await navigator.clipboard.write([item]);
+      if (memberId) {
+        if (copyQRTimeoutRef.current) window.clearTimeout(copyQRTimeoutRef.current);
+        setCopiedQRId(memberId);
+        copyQRTimeoutRef.current = window.setTimeout(() => setCopiedQRId(null), 2000);
+      }
+    } catch (err) {
+      console.error('Clipboard copy failed, fallback to download:', err);
+      downloadQRImage(name);
+    }
+  }, [downloadQRImage]);
 
   const triggerSpectacularEffect = async () => {
     vibrate([30, 50, 30, 50, 30, 50, 30]);
-    let confetti: typeof import('canvas-confetti');
     try {
-      const confettiModule = await import('canvas-confetti');
-      confetti = (
-        (
-          confettiModule as unknown as {default?: typeof import('canvas-confetti')}
-        ).default ?? confettiModule
-      ) as typeof import('canvas-confetti');
+      if (!cachedConfetti) {
+        const confettiModule = await import('canvas-confetti');
+        cachedConfetti = (
+          (confettiModule as unknown as { default?: typeof import('canvas-confetti') }).default ?? confettiModule
+        ) as typeof import('canvas-confetti');
+      }
     } catch (error) {
       console.error('Failed to load celebration effect', error);
       return;
     }
+    const confetti = cachedConfetti;
+    if (!confetti) return;
     const duration = 3 * 1000;
     const end = Date.now() + duration;
 
     (function frame() {
-      // launch a few confetti from the left edge
       confetti({
         particleCount: 7,
         angle: 60,
@@ -544,7 +587,6 @@ export default function App() {
         origin: { x: 0 },
         colors: ['#a855f7', '#6366f1', '#ec4899']
       });
-      // and launch a few from the right edge
       confetti({
         particleCount: 7,
         angle: 120,
@@ -689,8 +731,8 @@ export default function App() {
             <motion.button 
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              onClick={() => { vibrate(10); setSettings({ ...settings, isSushiroMode: !settings.isSushiroMode }); }}
-              className={`w-11 h-11 flex items-center justify-center shrink-0 rounded-xl border transition-all text-xl shadow-sm ${
+              onClick={() => { vibrate(10); setSettings(s => ({ ...s, isSushiroMode: !s.isSushiroMode })); }}
+              className={`w-11 h-11 flex items-center justify-center shrink-0 rounded-xl border transition-all text-xl shadow-sm cursor-pointer ${
                 settings.isSushiroMode 
                   ? 'bg-orange-50 border-orange-200 text-orange-500' 
                   : 'bg-white/80 border-slate-200 text-slate-500 hover:text-slate-700'
@@ -866,70 +908,145 @@ export default function App() {
                 <label className="text-sm font-bold text-slate-600">{t('sharedDiscount')}</label>
                 <div className="flex bg-slate-200/50 p-0.5 rounded-lg shrink-0">
                   <button 
-                    onClick={() => { vibrate(10); setSettings({ ...settings, sharedDiscountType: 'amount' }); }}
-                    className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${settings.sharedDiscountType === 'amount' || !settings.sharedDiscountType ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    type="button"
+                    onClick={() => { vibrate(10); setSettings(s => ({ ...s, sharedDiscountType: 'amount' })); }}
+                    className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${settings.sharedDiscountType === 'amount' || !settings.sharedDiscountType ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                   >฿</button>
                   <button 
+                    type="button"
                     onClick={() => {
                       vibrate(10);
-                      setSettings({
-                        ...settings,
+                      setSettings(s => ({
+                        ...s,
                         sharedDiscountType: 'percentage',
-                        sharedDiscount: sanitizeNonNegativeNumber(settings.sharedDiscount, 100),
-                      });
+                        sharedDiscount: sanitizeNonNegativeNumber(s.sharedDiscount, 100),
+                      }));
                     }}
-                    className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${settings.sharedDiscountType === 'percentage' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${settings.sharedDiscountType === 'percentage' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                   >%</button>
                 </div>
               </div>
               <div className="relative group">
                 <input 
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  max={settings.sharedDiscountType === 'percentage' ? 100 : undefined}
-                  step="0.01"
-                  value={settings.sharedDiscount || ''}
-                  onChange={(e) => setSettings({
-                    ...settings,
-                    sharedDiscount: sanitizeNonNegativeNumber(
-                      Number(e.target.value),
-                      settings.sharedDiscountType === 'percentage' ? 100 : Number.POSITIVE_INFINITY,
-                    ),
-                  })}
-                  className="w-full h-11 glass-input rounded-xl px-4 font-bold text-base text-slate-900 placeholder:text-slate-500"
+                  type="text"
+                  readOnly
+                  value={settings.sharedDiscount ? String(settings.sharedDiscount) : ''}
+                  onClick={() => openKeypad(
+                    'shared-discount',
+                    t('sharedDiscount'),
+                    settings.sharedDiscount || 0,
+                    (val) => setSettings(s => ({ ...s, sharedDiscount: val })),
+                    settings.sharedDiscountType === 'percentage' ? '%' : '฿',
+                    settings.sharedDiscountType === 'percentage' ? 100 : undefined,
+                  )}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      openKeypad(
+                        'shared-discount',
+                        t('sharedDiscount'),
+                        settings.sharedDiscount || 0,
+                        (val) => setSettings(s => ({ ...s, sharedDiscount: val })),
+                        settings.sharedDiscountType === 'percentage' ? '%' : '฿',
+                        settings.sharedDiscountType === 'percentage' ? 100 : undefined,
+                      );
+                    }
+                  }}
+                  className="w-full h-11 glass-input rounded-xl px-4 font-bold text-base text-slate-900 placeholder:text-slate-500 cursor-pointer"
                   placeholder="0.00"
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-500 font-extrabold">
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-500 font-extrabold pointer-events-none">
                   {settings.sharedDiscountType === 'percentage' ? '%' : '฿'}
                 </span>
               </div>
             </div>
 
             <div className="flex-1 flex gap-2">
-              <button 
-                onClick={() => { vibrate(10); setSettings({ ...settings, hasServiceCharge: !settings.hasServiceCharge }); }}
-                className={`flex-1 h-11 rounded-xl border transition-all flex items-center justify-center gap-2 outline-none px-2 ${
+              {/* Service Charge */}
+              <div 
+                className={`flex-1 h-11 rounded-xl border transition-all flex items-center justify-between outline-none px-2.5 py-1 ${
                   settings.hasServiceCharge 
                     ? 'vibrant-gradient-light border-transparent text-white shadow-md' 
                     : 'glass-input text-slate-600 hover:text-slate-800'
                 }`}
               >
-                <div className={`w-1.5 h-1.5 rounded-full transition-all relative z-10 ${settings.hasServiceCharge ? 'bg-white scale-125' : 'bg-slate-400'}`} />
-                <span className="text-xs font-bold uppercase leading-tight relative z-10">SVC 10%</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrate(10);
+                    setSettings(s => ({ ...s, hasServiceCharge: !s.hasServiceCharge }));
+                  }}
+                  className="flex items-center gap-1.5 flex-1 min-w-0 text-left cursor-pointer outline-none"
+                >
+                  <div className={`w-2 h-2 rounded-full transition-all shrink-0 ${settings.hasServiceCharge ? 'bg-white scale-110 shadow-sm' : 'bg-slate-400'}`} />
+                  <span className="text-xs font-extrabold uppercase leading-tight truncate">SVC</span>
+                </button>
+                <div className={`w-[1px] h-4 mx-1 ${settings.hasServiceCharge ? 'bg-white/30' : 'bg-slate-300 dark:bg-slate-700'}`} />
+                <button
+                  type="button"
+                  onClick={() => {
+                    openKeypad(
+                      'svc-rate',
+                      t('serviceChargeRate'),
+                      settings.serviceChargeRate ?? 10,
+                      (val) => setSettings(s => ({ ...s, hasServiceCharge: true, serviceChargeRate: val })),
+                      '%',
+                      100,
+                    );
+                  }}
+                  className={`px-2 py-0.5 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-0.5 ${
+                    settings.hasServiceCharge
+                      ? 'bg-black/20 hover:bg-black/30 text-white'
+                      : 'bg-slate-200/60 dark:bg-slate-700/60 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300'
+                  }`}
+                  title={t('serviceChargeRate')}
+                >
+                  <span>{settings.serviceChargeRate ?? 10}%</span>
+                </button>
+              </div>
               
-              <button 
-                onClick={() => { vibrate(10); setSettings({ ...settings, hasVat: !settings.hasVat }); }}
-                className={`flex-1 h-11 rounded-xl border transition-all flex items-center justify-center gap-2 outline-none px-2 ${
+              {/* VAT */}
+              <div 
+                className={`flex-1 h-11 rounded-xl border transition-all flex items-center justify-between outline-none px-2.5 py-1 ${
                   settings.hasVat 
                     ? 'vibrant-gradient-light border-transparent text-white shadow-md' 
                     : 'glass-input text-slate-600 hover:text-slate-800'
                 }`}
               >
-                <div className={`w-1.5 h-1.5 rounded-full transition-all relative z-10 ${settings.hasVat ? 'bg-white scale-125' : 'bg-slate-400'}`} />
-                <span className="text-xs font-bold uppercase leading-tight relative z-10">VAT 7%</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrate(10);
+                    setSettings(s => ({ ...s, hasVat: !s.hasVat }));
+                  }}
+                  className="flex items-center gap-1.5 flex-1 min-w-0 text-left cursor-pointer outline-none"
+                >
+                  <div className={`w-2 h-2 rounded-full transition-all shrink-0 ${settings.hasVat ? 'bg-white scale-110 shadow-sm' : 'bg-slate-400'}`} />
+                  <span className="text-xs font-extrabold uppercase leading-tight truncate">VAT</span>
+                </button>
+                <div className={`w-[1px] h-4 mx-1 ${settings.hasVat ? 'bg-white/30' : 'bg-slate-300 dark:bg-slate-700'}`} />
+                <button
+                  type="button"
+                  onClick={() => {
+                    openKeypad(
+                      'vat-rate',
+                      t('vatRate'),
+                      settings.vatRate ?? 7,
+                      (val) => setSettings(s => ({ ...s, hasVat: true, vatRate: val })),
+                      '%',
+                      100,
+                    );
+                  }}
+                  className={`px-2 py-0.5 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-0.5 ${
+                    settings.hasVat
+                      ? 'bg-black/20 hover:bg-black/30 text-white'
+                      : 'bg-slate-200/60 dark:bg-slate-700/60 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300'
+                  }`}
+                  title={t('vatRate')}
+                >
+                  <span>{settings.vatRate ?? 7}%</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -940,7 +1057,7 @@ export default function App() {
             <div className="grid grid-cols-2 gap-2 bg-slate-200/50 p-1 rounded-2xl">
               <button
                 type="button"
-                onClick={() => { vibrate(10); setSettings({ ...settings, discountTiming: 'before' }); }}
+                onClick={() => { vibrate(10); setSettings(s => ({ ...s, discountTiming: 'before' })); }}
                 className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   settings.discountTiming !== 'after' 
                     ? 'bg-white text-indigo-600 shadow-sm' 
@@ -951,7 +1068,7 @@ export default function App() {
               </button>
               <button
                 type="button"
-                onClick={() => { vibrate(10); setSettings({ ...settings, discountTiming: 'after' }); }}
+                onClick={() => { vibrate(10); setSettings(s => ({ ...s, discountTiming: 'after' })); }}
                 className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   settings.discountTiming === 'after' 
                     ? 'bg-white text-indigo-600 shadow-sm' 
@@ -983,90 +1100,26 @@ export default function App() {
           <div className="space-y-3">
             <AnimatePresence initial={false}>
               {sharedItems.map((item) => (
-                <motion.div 
+                <ItemRow
                   key={item.id}
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="flex flex-col gap-2"
-                >
-                  <div className="flex items-center gap-2 w-full">
-                    <input 
-                      type="text"
-                      value={item.name}
-                      onChange={(e) => updateSharedItem(item.id, { name: e.target.value })}
-                      className="flex-1 min-w-0 text-base font-semibold glass-input rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500 text-slate-900 placeholder:text-slate-400"
-                      placeholder={t('sharedItemNamePlaceholder')}
-                    />
-                    <div className="relative shrink-0">
-                      <input 
-                        type="number"
-                        inputMode="decimal"
-                        min="0"
-                        step="0.01"
-                        value={item.price || ''}
-                        onChange={(e) => updateSharedItem(item.id, { price: Number(e.target.value) })}
-                        className="w-20 sm:w-24 text-base font-extrabold glass-input rounded-xl px-2 sm:px-3 py-2 focus:ring-2 focus:ring-indigo-500 text-right text-slate-900 focus:scale-[1.03] transition-transform"
-                        placeholder="0"
-                        ref={(el) => {
-                          if (el && focusTargetItemId === item.id) {
-                            el.focus();
-                            setFocusTargetItemId(null);
-                          }
-                        }}
-                      />
-                      <span className="absolute -left-3 sm:-left-3.5 top-1/2 -translate-y-1/2 text-sm text-indigo-500 font-extrabold">฿</span>
-                    </div>
-                    <button
-                      onClick={() => { vibrate(10); setExpandedItemOptionsId(expandedItemOptionsId === item.id ? null : item.id); }}
-                      className={`p-1 sm:p-1.5 transition-colors shrink-0 rounded-xl ${expandedItemOptionsId === item.id ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 hover:text-indigo-500 hover:bg-indigo-50'}`}
-                    >
-                      <SlidersHorizontal size={18} />
-                    </button>
-                    <button 
-                      onClick={() => removeSharedItem(item.id)}
-                      className="p-1 sm:p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all shrink-0 cursor-pointer"
-                    >
-                      <X size={18} />
-                    </button>
-                  </div>
-
-                  <AnimatePresence>
-                    {expandedItemOptionsId === item.id && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="flex items-center gap-2 pt-1 pb-2 overflow-x-auto hide-scrollbar"
-                      >
-                        <button 
-                          onClick={() => { vibrate(10); updateSharedItem(item.id, { excludeDiscount: !item.excludeDiscount }); }}
-                          className={`px-2.5 py-1 text-sm font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5
-                            ${!item.excludeDiscount ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400 line-through'}`}
-                        >
-                          {!item.excludeDiscount && <Check size={12} />}
-                          {t('discount')}
-                        </button>
-                        <button 
-                          onClick={() => { vibrate(10); updateSharedItem(item.id, { excludeServiceCharge: !item.excludeServiceCharge }); }}
-                          className={`px-2.5 py-1 text-sm font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5
-                            ${!item.excludeServiceCharge ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400 line-through'}`}
-                        >
-                          {!item.excludeServiceCharge && <Check size={12} />}
-                          {t('serviceCharge')}
-                        </button>
-                        <button 
-                          onClick={() => { vibrate(10); updateSharedItem(item.id, { excludeVat: !item.excludeVat }); }}
-                          className={`px-2.5 py-1 text-sm font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5
-                            ${!item.excludeVat ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400 line-through'}`}
-                        >
-                          {!item.excludeVat && <Check size={12} />}
-                          {t('vat')}
-                        </button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.div>
+                  item={item}
+                  placeholderName={t('sharedItemNamePlaceholder')}
+                  onUpdate={(updates) => updateSharedItem(item.id, updates)}
+                  onRemove={() => removeSharedItem(item.id)}
+                  onOpenKeypad={(id, title, price) => openKeypad(
+                    id,
+                    title,
+                    price,
+                    (val) => updateSharedItem(item.id, { price: val }),
+                    '฿',
+                  )}
+                  isExpanded={expandedItemOptionsId === item.id}
+                  onToggleExpanded={() => setExpandedItemOptionsId(expandedItemOptionsId === item.id ? null : item.id)}
+                  keypadId={`shared-${item.id}`}
+                  keypadTitle={item.name || t('sharedItemNamePlaceholder')}
+                  vibrate={vibrate}
+                  isShared={true}
+                />
               ))}
             </AnimatePresence>
 
@@ -1117,7 +1170,7 @@ export default function App() {
                     {people.length > 1 && (
                       <button 
                         onClick={() => removePerson(person.id)}
-                        className="p-3 text-slate-400 hover:text-rose-600 hover:bg-rose-100 rounded-2xl transition-all"
+                        className="p-3 text-slate-400 hover:text-rose-600 hover:bg-rose-100 rounded-2xl transition-all cursor-pointer"
                       >
                         <Trash2 size={20} />
                       </button>
@@ -1129,136 +1182,43 @@ export default function App() {
                       <>
                         <AnimatePresence initial={false}>
                           {person.items.map((item) => (
-                            <motion.div 
+                            <ItemRow
                               key={item.id}
-                              layout
-                              transition={{ duration: 0.2, ease: "easeOut" }}
-                              initial={{ opacity: 0, x: -20 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              exit={{ opacity: 0, x: 20, transition: { duration: 0.2 } }}
-                              className="flex flex-col gap-2 bg-white/40 backdrop-blur-md px-3 sm:px-4 py-2 sm:py-3 rounded-[1.25rem] group/item border border-white/50 focus-within:bg-white/80 transition-all shadow-[0_2px_10px_rgba(0,0,0,0.02)]"
-                            >
-                              <div className="flex items-center gap-2 sm:gap-3 w-full">
-                                <input 
-                                  type="text"
-                                  value={item.name}
-                                  onChange={(e) => updateItem(person.id, item.id, { name: e.target.value })}
-                                  className="flex-1 min-w-0 text-base bg-transparent border-none focus:ring-0 p-0 placeholder:text-slate-500 font-semibold text-slate-900"
-                                  placeholder={t('itemNamePlaceholder')}
-                                />
-                                <div className="relative group/price shrink-0">
-                                  <input 
-                                    type="number"
-                                    inputMode="decimal"
-                                    min="0"
-                                    step="0.01"
-                                    value={item.price || ''}
-                                    onChange={(e) => updateItem(person.id, item.id, { price: Number(e.target.value) })}
-                                    className="w-20 sm:w-24 text-base font-extrabold glass-input rounded-xl px-2 sm:px-3 py-2 focus:ring-2 focus:ring-indigo-500 text-right text-slate-900 focus:scale-[1.03] transition-transform"
-                                    placeholder="0"
-                                    ref={(el) => {
-                                      if (el && focusTargetItemId === item.id) {
-                                        el.focus();
-                                        setFocusTargetItemId(null);
-                                      }
-                                    }}
-                                  />
-                                  <span className="absolute -left-3 sm:-left-3.5 top-1/2 -translate-y-1/2 text-sm text-indigo-500 font-extrabold">฿</span>
-                                </div>
-                                <button
-                                  onClick={() => { vibrate(10); setExpandedItemOptionsId(expandedItemOptionsId === item.id ? null : item.id); }}
-                                  className={`p-1 sm:p-1.5 transition-colors shrink-0 rounded-xl ${expandedItemOptionsId === item.id ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 hover:text-indigo-500 hover:bg-indigo-50'}`}
-                                >
-                                  <SlidersHorizontal size={18} />
-                                </button>
-                                <button 
-                                  onClick={() => removeItem(person.id, item.id)}
-                                  className="p-1 sm:p-1.5 text-slate-500 hover:text-orange-600 transition-colors shrink-0"
-                                >
-                                  <X size={18} />
-                                </button>
-                              </div>
-
-                              <AnimatePresence>
-                                {expandedItemOptionsId === item.id && (
-                                  <motion.div
-                                    initial={{ opacity: 0, height: 0 }}
-                                    animate={{ opacity: 1, height: 'auto' }}
-                                    exit={{ opacity: 0, height: 0 }}
-                                    className="flex items-center gap-2 pt-1 pb-1 overflow-x-auto hide-scrollbar"
-                                  >
-                                    <button 
-                                      onClick={() => { vibrate(10); updateItem(person.id, item.id, { excludeDiscount: !item.excludeDiscount }); }}
-                                      className={`px-2.5 py-1 text-sm font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5
-                                        ${!item.excludeDiscount ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400 line-through'}`}
-                                    >
-                                      {!item.excludeDiscount && <Check size={12} />}
-                                      {t('discount')}
-                                    </button>
-                                    <button 
-                                      onClick={() => { vibrate(10); updateItem(person.id, item.id, { excludeServiceCharge: !item.excludeServiceCharge }); }}
-                                      className={`px-2.5 py-1 text-sm font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5
-                                        ${!item.excludeServiceCharge ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400 line-through'}`}
-                                    >
-                                      {!item.excludeServiceCharge && <Check size={12} />}
-                                      {t('serviceCharge')}
-                                    </button>
-                                    <button 
-                                      onClick={() => { vibrate(10); updateItem(person.id, item.id, { excludeVat: !item.excludeVat }); }}
-                                      className={`px-2.5 py-1 text-sm font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5
-                                        ${!item.excludeVat ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400 line-through'}`}
-                                    >
-                                      {!item.excludeVat && <Check size={12} />}
-                                      {t('vat')}
-                                    </button>
-                                  </motion.div>
-                                )}
-                              </AnimatePresence>
-                            </motion.div>
+                              item={item}
+                              placeholderName={t('itemNamePlaceholder')}
+                              onUpdate={(updates) => updateItem(person.id, item.id, updates)}
+                              onRemove={() => removeItem(person.id, item.id)}
+                              onOpenKeypad={(id, title, price) => openKeypad(
+                                id,
+                                title,
+                                price,
+                                (val) => updateItem(person.id, item.id, { price: val }),
+                                '฿',
+                              )}
+                              isExpanded={expandedItemOptionsId === item.id}
+                              onToggleExpanded={() => setExpandedItemOptionsId(expandedItemOptionsId === item.id ? null : item.id)}
+                              keypadId={`item-${person.id}-${item.id}`}
+                              keypadTitle={`${person.name} - ${item.name || t('itemNamePlaceholder')}`}
+                              vibrate={vibrate}
+                              isShared={false}
+                            />
                           ))}
                         </AnimatePresence>
 
                         <button 
                           onClick={() => addItem(person.id)}
-                          className="w-full py-4 border-2 border-dashed border-slate-300 rounded-[1.25rem] text-slate-500 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-all flex items-center justify-center gap-3 group/add"
+                          className="w-full py-4 border-2 border-dashed border-slate-300 rounded-[1.25rem] text-slate-500 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-all flex items-center justify-center gap-3 group/add cursor-pointer"
                         >
                           <Plus size={18} className="group-hover/add:scale-125 transition-transform" />
                           <span className="text-xs font-bold uppercase tracking-widest">{t('addItem')}</span>
                         </button>
                       </>
                     ) : (
-                      <div className="grid grid-cols-5 gap-2">
-                        {/* Sushiro Plate Counters */}
-                        {[
-                          { color: 'white' as const, emoji: '⚪️', label: '30' },
-                          { color: 'red' as const, emoji: '🔴', label: '40' },
-                          { color: 'silver' as const, emoji: '🔘', label: '60' }, // Using radio group for silver
-                          { color: 'gold' as const, emoji: '🟡', label: '80' },
-                          { color: 'black' as const, emoji: '⚫️', label: '100' }
-                        ].map((p) => (
-                          <div key={p.color} className="flex flex-col items-center gap-2">
-                            <span className="text-xs font-bold text-slate-600">{p.label}฿</span>
-                            <button 
-                              onClick={() => updatePlateCount(person.id, p.color, 1)}
-                              className="w-full aspect-square rounded-2xl bg-white/50 backdrop-blur-md border border-white flex items-center justify-center text-xl hover:bg-white hover:border-indigo-200 hover:shadow-sm active:scale-95 transition-all relative overflow-hidden group shadow-[0_2px_8px_rgba(0,0,0,0.02)]"
-                            >
-                              {p.emoji}
-                              <div className="absolute top-0 right-0 p-1 opacity-0 group-hover:opacity-100">
-                                <Plus size={10} className="text-indigo-500" />
-                              </div>
-                            </button>
-                            <div className="flex items-center gap-2">
-                              <button 
-                                onClick={() => updatePlateCount(person.id, p.color, -1)}
-                                className="w-5 h-5 rounded-full bg-white/60 border border-white flex items-center justify-center text-slate-500 hover:bg-rose-50 hover:text-rose-500 hover:border-rose-100 transition-colors shadow-sm"
-                              >
-                                <Minus size={10} />
-                              </button>
-                              <span className="text-base font-extrabold text-slate-900 w-4 text-center">{person.plates?.[p.color] || 0}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                      <SushiroPlateSelector
+                        plates={person.plates}
+                        onUpdatePlate={(color, delta) => updatePlateCount(person.id, color, delta)}
+                        vibrate={vibrate}
+                      />
                     )}
                   </div>
 
@@ -1267,13 +1227,29 @@ export default function App() {
                       <label className="text-xs font-bold text-slate-500 uppercase tracking-widest leading-none block ml-1">{t('individualDiscount')}</label>
                       <div className="relative w-32 group/disc">
                         <input 
-                          type="number"
-                          inputMode="decimal"
-                          min="0"
-                          step="0.01"
-                          value={person.individualDiscount || ''}
-                          onChange={(e) => updateIndividualDiscount(person.id, Number(e.target.value))}
-                          className="w-full text-base font-bold glass-input rounded-[1rem] px-4 py-2.5 placeholder:text-slate-500 text-slate-900"
+                          type="text"
+                          readOnly
+                          value={person.individualDiscount ? String(person.individualDiscount) : ''}
+                          onClick={() => openKeypad(
+                            `discount-${person.id}`,
+                            `${person.name} - ${t('individualDiscount')}`,
+                            person.individualDiscount || 0,
+                            (val) => updateIndividualDiscount(person.id, val),
+                            '฿',
+                          )}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              openKeypad(
+                                `discount-${person.id}`,
+                                `${person.name} - ${t('individualDiscount')}`,
+                                person.individualDiscount || 0,
+                                (val) => updateIndividualDiscount(person.id, val),
+                                '฿',
+                              );
+                            }
+                          }}
+                          className="w-full text-base font-bold glass-input rounded-[1rem] px-4 py-2.5 placeholder:text-slate-500 text-slate-900 cursor-pointer"
                           placeholder="0.00"
                         />
                       </div>
@@ -1281,7 +1257,7 @@ export default function App() {
                     <div className="text-right">
                       <p className="text-xs font-bold text-slate-600 uppercase tracking-widest mb-1">{t('yourTotal')}</p>
                       <p className="text-3xl font-extrabold text-indigo-700 tabular-nums tracking-tighter">
-                        ฿{peopleTotalsById.get(person.id)?.finalShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ฿{(peopleTotalsById.get(person.id)?.finalShare ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                     </div>
                   </div>
@@ -1333,7 +1309,7 @@ export default function App() {
                 </label>
                 <button
                   id="splitQuantitiesToggle"
-                  onClick={() => { vibrate(10); setSettings({ ...settings, splitScanItemsByQuantity: settings.splitScanItemsByQuantity === false ? true : false }); }}
+                  onClick={() => { vibrate(10); setSettings(s => ({ ...s, splitScanItemsByQuantity: s.splitScanItemsByQuantity === false })); }}
                   className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${settings.splitScanItemsByQuantity !== false ? 'bg-indigo-600' : 'bg-slate-200'}`}
                 >
                   <span
@@ -1398,13 +1374,13 @@ export default function App() {
               <div className="pt-2 flex flex-col gap-3">
                 {settings.hasServiceCharge && (
                   <div className="flex justify-between items-center text-slate-400">
-                    <span>{t('serviceCharge')} (10%)</span>
+                    <span>{t('serviceCharge')} ({settings.serviceChargeRate ?? 10}%)</span>
                     <span className="text-indigo-200">฿{breakdown.serviceChargeTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                   </div>
                 )}
                 {settings.hasVat && (
                   <div className="flex justify-between items-center text-slate-400">
-                    <span>{t('vat')} (7%)</span>
+                    <span>{t('vat')} ({settings.vatRate ?? 7}%)</span>
                     <span className="text-indigo-200">฿{breakdown.vatTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                   </div>
                 )}
@@ -1500,10 +1476,15 @@ export default function App() {
                   <ReceiptText size={48} className="mx-auto text-slate-500 dark:text-slate-300" />
                   <p className="text-sm leading-relaxed">{t('invalidAmount')}</p>
                 </div>
-              ) : !promptPayId ? (
+              ) : !promptPayId.trim() ? (
                 <div className="w-full rounded-3xl border border-amber-200 bg-amber-50/90 p-6 py-12 text-center font-semibold text-amber-800 select-none space-y-3 dark:border-amber-700/80 dark:bg-amber-950/60 dark:text-amber-100">
                   <Phone size={48} className="mx-auto text-amber-600 dark:text-amber-300" />
                   <p className="text-sm leading-relaxed">{t('enterPromptPayFirst')}</p>
+                </div>
+              ) : !qrPayload ? (
+                <div className="w-full rounded-3xl border border-rose-200 bg-rose-50/90 p-6 py-12 text-center font-semibold text-rose-800 select-none space-y-3 dark:border-rose-700/80 dark:bg-rose-950/60 dark:text-rose-100">
+                  <Phone size={48} className="mx-auto text-rose-600 dark:text-rose-300" />
+                  <p className="text-sm leading-relaxed">{t('invalidPromptPayId')}</p>
                 </div>
               ) : (
                 <>
@@ -1516,13 +1497,13 @@ export default function App() {
                     </p>
                   </div>
 
-                  <div className="p-5 bg-white rounded-3xl shadow-md border border-slate-100 flex items-center justify-center relative group">
+                  <div className="p-5 !bg-white rounded-3xl shadow-md border !border-slate-100 flex items-center justify-center relative group">
                     <QRCodeCanvas 
-                      id={`qr-canvas-${selectedMember?.id}`}
+                      ref={qrCanvasRef}
                       value={qrPayload}
-                      size={200}
+                      size={220}
                       level="M"
-                      includeMargin={true}
+                      marginSize={4}
                     />
                   </div>
 
@@ -1545,7 +1526,7 @@ export default function App() {
                     </button>
 
                     <button
-                      onClick={() => downloadQRImage(selectedMember?.id, selectedMember?.name)}
+                      onClick={() => downloadQRImage(selectedMember?.name)}
                       className="flex items-center justify-center gap-2 py-3.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-[1.25rem] font-bold text-sm active:scale-95 transition-all outline-none cursor-pointer border border-transparent dark:border-slate-700"
                     >
                       <Download size={18} strokeWidth={2.5} />
@@ -1684,6 +1665,20 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* On-Screen Calculator Keypad */}
+      {activeKeypad && (
+        <CalculatorKeypad
+          isOpen={true}
+          title={activeKeypad.title}
+          initialValue={activeKeypad.initialValue}
+          unit={activeKeypad.unit}
+          max={activeKeypad.max}
+          onConfirm={activeKeypad.onConfirm}
+          onClose={() => setActiveKeypad(null)}
+          vibrate={vibrate}
+        />
+      )}
     </div>
   );
 }

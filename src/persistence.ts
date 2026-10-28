@@ -94,6 +94,8 @@ const parseSettings = (value: unknown): BillSettings | null => {
   if (sharedDiscount === null) return null;
 
   const sharedDiscountType = value.sharedDiscountType === 'percentage' ? 'percentage' : 'amount';
+  const serviceChargeRate = asNonNegativeNumber(value.serviceChargeRate);
+  const vatRate = asNonNegativeNumber(value.vatRate);
 
   return {
     sharedDiscount: sharedDiscountType === 'percentage'
@@ -102,7 +104,9 @@ const parseSettings = (value: unknown): BillSettings | null => {
     sharedDiscountType,
     discountTiming: value.discountTiming === 'after' ? 'after' : 'before',
     hasServiceCharge: value.hasServiceCharge === true,
+    serviceChargeRate: serviceChargeRate ?? 10,
     hasVat: value.hasVat === true,
+    vatRate: vatRate ?? 7,
     isSushiroMode: value.isSushiroMode === true,
     splitScanItemsByQuantity: value.splitScanItemsByQuantity !== false,
   };

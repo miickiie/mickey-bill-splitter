@@ -27,8 +27,10 @@ export interface BillSettings {
   sharedDiscount: number;
   sharedDiscountType?: 'amount' | 'percentage';
   discountTiming?: 'before' | 'after';
-  hasServiceCharge: boolean; // 10%
-  hasVat: boolean; // 7%
+  hasServiceCharge: boolean;
+  serviceChargeRate?: number; // Custom rate in %, defaults to 10
+  hasVat: boolean;
+  vatRate?: number; // Custom rate in %, defaults to 7
   isSushiroMode?: boolean;
   splitScanItemsByQuantity?: boolean;
 }

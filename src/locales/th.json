@@ -33,6 +33,7 @@
     "splitQuantitiesOption": "แยกเมนูซ้ำให้แต่ละคน (3 x เมนู = 3 คน)",
     "copyTemplateSubtotal": "🧾 สรุปยอด จำนวน {{count}} คน\n\n",
     "copyTemplateTotal": "\n💰 รวม: ฿{{total}}\n",
+    "promptPayInSummary": "\n📱 พร้อมเพย์: {{id}}\n",
     "credit": "Vibe with 🤍 by",
     "qrMode": "พร้อมเพย์ QR",
     "promptPayIdLabel": "เบอร์โทรศัพท์/เลขบัตรประชาชน พร้อมเพย์",
@@ -43,6 +44,7 @@
     "selectPersonToPay": "เลือกสมาชิกเพื่อแสดง QR Code",
     "qrFor": "QR พร้อมเพย์ของ {{name}}",
     "enterPromptPayFirst": "กรุณาใส่พร้อมเพย์",
+    "invalidPromptPayId": "เบอร์โทรศัพท์ (10 หลัก) หรือเลขบัตรประชาชน (13 หลัก) ไม่ถูกต้อง",
     "invalidAmount": "ยอดเงินเป็น 0 บาท",
     "sharedItemsSection": "รายการอาหารทานร่วมกัน (เมนูกลาง)",
     "addSharedItem": "เพิ่มเมนูกลาง",
@@ -66,6 +68,11 @@
     "changeLanguage": "เปลี่ยนภาษา",
     "discount": "ส่วนลด",
     "serviceCharge": "Service Charge",
-    "vat": "VAT"
+    "vat": "VAT",
+    "enterAmount": "ระบุจำนวน",
+    "clearKeypad": "ล้าง",
+    "done": "เสร็จสิ้น",
+    "serviceChargeRate": "เซอร์วิสชาร์จ (%)",
+    "vatRate": "ภาษีมูลค่าเพิ่ม (%)"
   }
 }

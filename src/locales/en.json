@@ -33,6 +33,7 @@
     "splitQuantitiesOption": "Split identical items / person (3 x 1 item = 3 persons)",
     "copyTemplateSubtotal": "🧾 Summary for {{count}} persons\n\n",
     "copyTemplateTotal": "\n💰 Total: ฿{{total}}\n",
+    "promptPayInSummary": "\n📱 PromptPay: {{id}}\n",
     "credit": "Vibe with 🤍 by",
     "qrMode": "PromptPay QR",
     "promptPayIdLabel": "PromptPay Phone Number or National ID",
@@ -43,6 +44,7 @@
     "selectPersonToPay": "Select member to display their QR Code",
     "qrFor": "PromptPay QR for {{name}}",
     "enterPromptPayFirst": "Please enter a PromptPay Phone/ID first",
+    "invalidPromptPayId": "Invalid PromptPay ID (must be a 10-digit mobile number or 13-digit ID)",
     "invalidAmount": "Amount is ฿0.00",
     "sharedItemsSection": "Shared Menu Items",
     "addSharedItem": "Add Shared Item",
@@ -66,6 +68,11 @@
     "changeLanguage": "Change language",
     "discount": "Discount",
     "serviceCharge": "Service Charge",
-    "vat": "VAT"
+    "vat": "VAT",
+    "enterAmount": "Enter amount",
+    "clearKeypad": "Clear",
+    "done": "Done",
+    "serviceChargeRate": "Service Charge (%)",
+    "vatRate": "VAT (%)"
   }
 }

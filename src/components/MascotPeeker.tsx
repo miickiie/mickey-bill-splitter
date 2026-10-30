@@ -10,11 +10,21 @@ const PEEKER_QUOTES = [
   'mascotPeekerQuote5',
 ];
 
+const QR_PEEKER_QUOTES = [
+  'qrCheerleader',
+  'mascotPeekerQuote3',
+  'mascotPeekerQuote4',
+  'mascotPeekerQuote1',
+  'mascotPeekerQuote5',
+];
+
 export interface MascotPeekerProps {
   variant?: CatVariant;
   className?: string;
   isDarkMode?: boolean;
   isScanning?: boolean;
+  isQrView?: boolean;
+  isQrCopied?: boolean;
   vibrate?: (pattern: number | number[]) => void;
 }
 
@@ -23,6 +33,8 @@ export function MascotPeeker({
   className = '',
   isDarkMode,
   isScanning = false,
+  isQrView = false,
+  isQrCopied = false,
   vibrate,
 }: MascotPeekerProps) {
   const { t, i18n } = useTranslation();
@@ -50,6 +62,30 @@ export function MascotPeeker({
   const prevDarkModeRef = useRef(isDarkMode);
   const prevLangRef = useRef(i18n.language);
   const prevScanningRef = useRef(isScanning);
+  const prevQrViewRef = useRef(isQrView);
+  const prevQrCopiedRef = useRef(isQrCopied);
+
+  // React to navigating to QR view
+  useEffect(() => {
+    if (!isMountedRef.current) return;
+    if (isQrView !== prevQrViewRef.current) {
+      prevQrViewRef.current = isQrView;
+      if (isQrView) {
+        triggerReaction(t('qrCheerleader'), 'happy');
+      }
+    }
+  }, [isQrView, t]);
+
+  // React to copying/downloading QR code
+  useEffect(() => {
+    if (!isMountedRef.current) return;
+    if (isQrCopied !== prevQrCopiedRef.current) {
+      prevQrCopiedRef.current = isQrCopied;
+      if (isQrCopied) {
+        triggerReaction(t('qrCheerleaderSuccess'), 'happy');
+      }
+    }
+  }, [isQrCopied, t]);
 
   // React to bill scanning state
   useEffect(() => {
@@ -139,10 +175,12 @@ export function MascotPeeker({
     if (vibrate) vibrate(10);
     window.clearTimeout(autoDuckTimer.current);
 
+    const activeQuotes = isQrView ? QR_PEEKER_QUOTES : PEEKER_QUOTES;
+
     if (!popped) {
       setPopped(true);
       setExpression('happy');
-      setBubble(t(PEEKER_QUOTES[quoteIndex % PEEKER_QUOTES.length]));
+      setBubble(t(activeQuotes[quoteIndex % activeQuotes.length]));
       setQuoteIndex((prev) => prev + 1);
 
       autoDuckTimer.current = window.setTimeout(() => {
@@ -152,7 +190,7 @@ export function MascotPeeker({
       }, 3500);
     } else {
       setExpression('wink');
-      setBubble(t(PEEKER_QUOTES[quoteIndex % PEEKER_QUOTES.length]));
+      setBubble(t(activeQuotes[quoteIndex % activeQuotes.length]));
       setQuoteIndex((prev) => prev + 1);
 
       autoDuckTimer.current = window.setTimeout(() => {
@@ -176,6 +214,7 @@ export function MascotPeeker({
           size={36}
           expression={isScanning ? 'thinking' : expression}
           variant={variant}
+          celebrating={isQrCopied}
           className={isScanning ? 'is-thinking' : ''}
         />
       </button>

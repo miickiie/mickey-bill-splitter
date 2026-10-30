@@ -33,7 +33,7 @@ import { ItemRow } from './components/ItemRow';
 import { SushiroPlateSelector } from './components/SushiroPlateSelector';
 import './pixel-cat.css';
 import { MascotPeeker } from './components/MascotPeeker';
-import { PixelCat, getPixelCatDataUrl } from './components/PixelCat';
+import { getPixelCatDataUrl } from './components/PixelCat';
 
 let cachedConfetti: typeof import('canvas-confetti') | null = null;
 
@@ -575,10 +575,13 @@ export default function App() {
       link.href = url;
       link.click();
       void triggerSpectacularEffect();
+      if (copyQRTimeoutRef.current) window.clearTimeout(copyQRTimeoutRef.current);
+      setCopiedQRId(selectedPersonForQR);
+      copyQRTimeoutRef.current = window.setTimeout(() => setCopiedQRId(null), 2500);
     } catch (e) {
       console.error('Download QR failed', e);
     }
-  }, []);
+  }, [selectedPersonForQR]);
 
   const copyQRToClipboard = useCallback(async (memberId?: string, name?: string) => {
     vibrate([10, 30, 10]);
@@ -1504,13 +1507,6 @@ export default function App() {
                 </div>
               ) : (
                 <>
-                  <div className="flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 dark:border-indigo-900/60 shadow-sm">
-                    <PixelCat size={22} expression="happy" variant={mascotVariant} celebrating={copiedQRId !== null} />
-                    <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">
-                      {copiedQRId ? t('qrCheerleaderSuccess') : t('qrCheerleader')}
-                    </span>
-                  </div>
-
                   <div className="space-y-1">
                     <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
                       {t('qrFor', { name: selectedMember?.name })}
@@ -1635,14 +1631,14 @@ export default function App() {
 
       {/* Modern Sticky Footer */}
       <footer className="fixed footer-safe-bottom left-1/2 -translate-x-1/2 z-40 w-full max-w-sm px-4">
-        {currentView === 'main' && (
-          <MascotPeeker 
-            variant={mascotVariant} 
-            isDarkMode={isDarkMode} 
-            isScanning={isScanning} 
-            vibrate={vibrate} 
-          />
-        )}
+        <MascotPeeker 
+          variant={mascotVariant} 
+          isDarkMode={isDarkMode} 
+          isScanning={isScanning} 
+          isQrView={currentView === 'qr'}
+          isQrCopied={copiedQRId !== null}
+          vibrate={vibrate} 
+        />
         <div className="glass-card rounded-[2rem] p-4 flex items-center justify-between gap-4">
           <div className="pl-2">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{t('netTotal')}</p>

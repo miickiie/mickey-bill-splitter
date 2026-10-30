@@ -31,7 +31,13 @@ export const SushiroPlateSelector: React.FC<SushiroPlateSelectorProps> = React.m
             <button
               type="button"
               onClick={() => {
-                if (vibrate) vibrate(10);
+                if (vibrate) {
+                  if (p.color === 'black' || p.color === 'gold') {
+                    vibrate([15, 30, 20]);
+                  } else {
+                    vibrate(10);
+                  }
+                }
                 onUpdatePlate(p.color, 1);
               }}
               className="w-full aspect-square rounded-2xl bg-white/50 backdrop-blur-md border border-white flex items-center justify-center text-xl hover:bg-white hover:border-indigo-200 hover:shadow-sm active:scale-95 transition-all relative overflow-hidden group shadow-[0_2px_8px_rgba(0,0,0,0.02)] cursor-pointer"

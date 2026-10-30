@@ -7,6 +7,8 @@ import {
   appendKeyToExpression,
   backspaceExpression,
 } from '../calculator';
+import { KeypadMascot } from './KeypadMascot';
+import type { CatVariant } from './PixelCat';
 
 const PERCENT_PRESETS = [0, 7, 10, 15];
 const AMOUNT_PRESETS = [10, 50, 100];
@@ -17,6 +19,7 @@ export interface CalculatorKeypadProps {
   initialValue: number;
   unit?: '฿' | '%';
   max?: number;
+  variant?: CatVariant;
   onConfirm: (value: number) => void;
   onClose: () => void;
   vibrate?: (pattern: number | number[]) => void;
@@ -28,6 +31,7 @@ export function CalculatorKeypad({
   initialValue,
   unit = '฿',
   max = Number.POSITIVE_INFINITY,
+  variant = 'food',
   onConfirm,
   onClose,
   vibrate,
@@ -35,6 +39,7 @@ export function CalculatorKeypad({
   const { t } = useTranslation();
   const [expression, setExpression] = useState<string>('0');
   const [hasUserTyped, setHasUserTyped] = useState<boolean>(false);
+  const [isConfirming, setIsConfirming] = useState<boolean>(false);
   const displayRef = useRef<HTMLDivElement>(null);
 
   // Reset or initialize when opened
@@ -98,8 +103,12 @@ export function CalculatorKeypad({
 
   const handleConfirm = useCallback(() => {
     handleVibrate();
-    onConfirm(evaluatedValue);
-    onClose();
+    setIsConfirming(true);
+    window.setTimeout(() => {
+      onConfirm(evaluatedValue);
+      onClose();
+      setIsConfirming(false);
+    }, 180);
   }, [handleVibrate, evaluatedValue, onConfirm, onClose]);
 
   // Keyboard navigation on desktop
@@ -163,20 +172,30 @@ export function CalculatorKeypad({
             aria-modal="true"
             aria-label={title || t('enterAmount')}
           >
-            {/* Top pill and close action */}
+            {/* Top pill, mascot buddy and close action */}
             <div className="flex items-center justify-between">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-100/80 dark:border-indigo-900/50 text-xs font-bold text-indigo-700 dark:text-indigo-300 shadow-sm max-w-[80%] truncate">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-100/80 dark:border-indigo-900/50 text-xs font-bold text-indigo-700 dark:text-indigo-300 shadow-sm max-w-[65%] truncate">
                 <Calculator size={14} className="text-indigo-600 dark:text-indigo-400 shrink-0" />
                 <span className="truncate">{title || t('enterAmount')}</span>
               </div>
-              <button
-                type="button"
-                onClick={onClose}
-                className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
-                aria-label={t('cancel')}
-              >
-                <X size={20} />
-              </button>
+              <div className="flex items-center gap-2.5">
+                <KeypadMascot
+                  expression={expression}
+                  evaluatedValue={evaluatedValue}
+                  hasUserTyped={hasUserTyped}
+                  variant={variant}
+                  isConfirming={isConfirming}
+                  vibrate={vibrate}
+                />
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                  aria-label={t('cancel')}
+                >
+                  <X size={20} />
+                </button>
+              </div>
             </div>
 
             {/* Large Amount Display */}

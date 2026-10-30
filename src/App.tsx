@@ -31,6 +31,9 @@ import { shouldReplaceStarterPerson } from './people';
 import { CalculatorKeypad } from './components/CalculatorKeypad';
 import { ItemRow } from './components/ItemRow';
 import { SushiroPlateSelector } from './components/SushiroPlateSelector';
+import './pixel-cat.css';
+import { MascotPeeker } from './components/MascotPeeker';
+import { PixelCat, getPixelCatDataUrl } from './components/PixelCat';
 
 let cachedConfetti: typeof import('canvas-confetti') | null = null;
 
@@ -185,6 +188,16 @@ export default function App() {
   const [focusTargetItemId, setFocusTargetItemId] = useState<string | null>(null);
   const [expandedItemOptionsId, setExpandedItemOptionsId] = useState<string | null>(null);
   const [activeKeypad, setActiveKeypad] = useState<ActiveKeypadState | null>(null);
+
+  const mascotVariant = settings.isSushiroMode ? 'sushiro' : 'food';
+
+  const catQrDataUrl = useMemo(() => {
+    return getPixelCatDataUrl({
+      variant: mascotVariant,
+      expression: 'happy',
+      size: 48,
+    });
+  }, [mascotVariant]);
   // Persist promptPayId
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -510,6 +523,46 @@ export default function App() {
     setShowResetConfirm(false);
   };
 
+  const triggerSpectacularEffect = async () => {
+    vibrate([30, 50, 30, 50, 30, 50, 30]);
+    try {
+      if (!cachedConfetti) {
+        const confettiModule = await import('canvas-confetti');
+        cachedConfetti = (
+          (confettiModule as unknown as { default?: typeof import('canvas-confetti') }).default ?? confettiModule
+        ) as typeof import('canvas-confetti');
+      }
+    } catch (error) {
+      console.error('Failed to load celebration effect', error);
+      return;
+    }
+    const confetti = cachedConfetti;
+    if (!confetti) return;
+    const duration = 2.5 * 1000;
+    const end = Date.now() + duration;
+
+    (function frame() {
+      confetti({
+        particleCount: 7,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0 },
+        colors: ['#a855f7', '#6366f1', '#ec4899']
+      });
+      confetti({
+        particleCount: 7,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1 },
+        colors: ['#a855f7', '#6366f1', '#ec4899']
+      });
+
+      if (Date.now() < end) {
+        requestAnimationFrame(frame);
+      }
+    }());
+  };
+
   const downloadQRImage = useCallback((name?: string) => {
     vibrate(10);
     const canvas = qrCanvasRef.current;
@@ -521,6 +574,7 @@ export default function App() {
       link.download = `PromptPay-QR-${safeName}.png`;
       link.href = url;
       link.click();
+      void triggerSpectacularEffect();
     } catch (e) {
       console.error('Download QR failed', e);
     }
@@ -553,53 +607,14 @@ export default function App() {
       if (memberId) {
         if (copyQRTimeoutRef.current) window.clearTimeout(copyQRTimeoutRef.current);
         setCopiedQRId(memberId);
-        copyQRTimeoutRef.current = window.setTimeout(() => setCopiedQRId(null), 2000);
+        void triggerSpectacularEffect();
+        copyQRTimeoutRef.current = window.setTimeout(() => setCopiedQRId(null), 2500);
       }
     } catch (err) {
       console.error('Clipboard copy failed, fallback to download:', err);
       downloadQRImage(name);
     }
   }, [downloadQRImage]);
-
-  const triggerSpectacularEffect = async () => {
-    vibrate([30, 50, 30, 50, 30, 50, 30]);
-    try {
-      if (!cachedConfetti) {
-        const confettiModule = await import('canvas-confetti');
-        cachedConfetti = (
-          (confettiModule as unknown as { default?: typeof import('canvas-confetti') }).default ?? confettiModule
-        ) as typeof import('canvas-confetti');
-      }
-    } catch (error) {
-      console.error('Failed to load celebration effect', error);
-      return;
-    }
-    const confetti = cachedConfetti;
-    if (!confetti) return;
-    const duration = 3 * 1000;
-    const end = Date.now() + duration;
-
-    (function frame() {
-      confetti({
-        particleCount: 7,
-        angle: 60,
-        spread: 55,
-        origin: { x: 0 },
-        colors: ['#a855f7', '#6366f1', '#ec4899']
-      });
-      confetti({
-        particleCount: 7,
-        angle: 120,
-        spread: 55,
-        origin: { x: 1 },
-        colors: ['#a855f7', '#6366f1', '#ec4899']
-      });
-
-      if (Date.now() < end) {
-        requestAnimationFrame(frame);
-      }
-    }());
-  };
 
   const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -678,6 +693,7 @@ export default function App() {
           ];
         });
         vibrate([10, 30, 20]);
+        void triggerSpectacularEffect();
       }
     } catch (err) {
       console.error(err);
@@ -1488,6 +1504,13 @@ export default function App() {
                 </div>
               ) : (
                 <>
+                  <div className="flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 dark:border-indigo-900/60 shadow-sm">
+                    <PixelCat size={22} expression="happy" variant={mascotVariant} celebrating={copiedQRId !== null} />
+                    <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">
+                      {copiedQRId ? t('qrCheerleaderSuccess') : t('qrCheerleader')}
+                    </span>
+                  </div>
+
                   <div className="space-y-1">
                     <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
                       {t('qrFor', { name: selectedMember?.name })}
@@ -1502,8 +1525,14 @@ export default function App() {
                       ref={qrCanvasRef}
                       value={qrPayload}
                       size={220}
-                      level="M"
+                      level="Q"
                       marginSize={4}
+                      imageSettings={{
+                        src: catQrDataUrl,
+                        height: 48,
+                        width: 48,
+                        excavate: true,
+                      }}
                     />
                   </div>
 
@@ -1606,6 +1635,14 @@ export default function App() {
 
       {/* Modern Sticky Footer */}
       <footer className="fixed footer-safe-bottom left-1/2 -translate-x-1/2 z-40 w-full max-w-sm px-4">
+        {currentView === 'main' && (
+          <MascotPeeker 
+            variant={mascotVariant} 
+            isDarkMode={isDarkMode} 
+            isScanning={isScanning} 
+            vibrate={vibrate} 
+          />
+        )}
         <div className="glass-card rounded-[2rem] p-4 flex items-center justify-between gap-4">
           <div className="pl-2">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{t('netTotal')}</p>
@@ -1674,6 +1711,7 @@ export default function App() {
           initialValue={activeKeypad.initialValue}
           unit={activeKeypad.unit}
           max={activeKeypad.max}
+          variant={mascotVariant}
           onConfirm={activeKeypad.onConfirm}
           onClose={() => setActiveKeypad(null)}
           vibrate={vibrate}

@@ -21,11 +21,10 @@ const responseSchema = Schema.array({
 
 const ai = getAI(firebaseApp, {backend: new GoogleAIBackend()});
 const receiptModel = getGenerativeModel(ai, {
-  model: 'gemini-3.5-flash',
+  model: 'gemini-3.6-flash',
   generationConfig: {
     responseMimeType: 'application/json',
     responseSchema,
-    temperature: 0.1,
   },
 });
 

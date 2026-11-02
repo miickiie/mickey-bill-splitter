@@ -2,7 +2,10 @@ import { useState, useRef, useEffect, type MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PixelCat, CatExpression, CatVariant } from './PixelCat';
 import type { PwaLifecycle } from '../hooks/usePwaLifecycle';
+import type { MascotNotice } from '../hooks/useMascotNotifications';
 import { PwaMascotPrompt } from './PwaMascotPrompt';
+import { MascotBillConfirmation, type MascotBillConfirmationProps } from './MascotBillConfirmation';
+import { MascotErrorBubble } from './MascotNotice';
 
 const PEEKER_QUOTES = [
   'mascotPeekerQuote1',
@@ -12,23 +15,17 @@ const PEEKER_QUOTES = [
   'mascotPeekerQuote5',
 ];
 
-const QR_PEEKER_QUOTES = [
-  'qrCheerleader',
-  'mascotPeekerQuote3',
-  'mascotPeekerQuote4',
-  'mascotPeekerQuote1',
-  'mascotPeekerQuote5',
-];
-
 export interface MascotPeekerProps {
   variant?: CatVariant;
   className?: string;
   isDarkMode?: boolean;
   isScanning?: boolean;
-  isQrView?: boolean;
-  isQrCopied?: boolean;
-  summaryCopyCount?: number;
+  qrReady?: boolean;
+  qrIssueKey?: string | null;
   pwa?: PwaLifecycle;
+  notice?: MascotNotice;
+  onDismissNotice?: (id: number) => void;
+  clearConfirmation?: MascotBillConfirmationProps;
   vibrate?: (pattern: number | number[]) => void;
 }
 
@@ -37,10 +34,12 @@ export function MascotPeeker({
   className = '',
   isDarkMode,
   isScanning = false,
-  isQrView = false,
-  isQrCopied = false,
-  summaryCopyCount = 0,
+  qrReady = false,
+  qrIssueKey,
   pwa,
+  notice,
+  onDismissNotice,
+  clearConfirmation,
   vibrate,
 }: MascotPeekerProps) {
   const { t, i18n } = useTranslation();
@@ -50,133 +49,60 @@ export function MascotPeeker({
   const [quoteIndex, setQuoteIndex] = useState(0);
   const autoDuckTimer = useRef<number | undefined>(undefined);
   const hasPwaPrompt = Boolean(pwa?.updateAvailable || pwa?.installOffer);
-  const showPopped = hasPwaPrompt || popped;
+  const hasPrioritySpeech = Boolean(clearConfirmation || notice || isScanning || hasPwaPrompt || qrIssueKey);
+  const showPopped = hasPrioritySpeech || popped;
+  const displayedNoticeId = notice && !clearConfirmation && (notice.tone === 'error' || (!isScanning && !hasPwaPrompt))
+    ? notice.id : null;
 
   useEffect(() => () => window.clearTimeout(autoDuckTimer.current), []);
 
+  // Action prompts and explicit operation results never use the playful speech timer.
   useEffect(() => {
     window.clearTimeout(autoDuckTimer.current);
     setPopped(false);
     setExpression('default');
     setBubble(null);
-  }, [hasPwaPrompt]);
+  }, [hasPrioritySpeech]);
 
-  const triggerReaction = (message: string, expr: CatExpression = 'happy', duration = 3500) => {
-    if (hasPwaPrompt) return;
+  const triggerReaction = (message: string, expr: CatExpression = 'happy') => {
+    if (hasPrioritySpeech) return;
     window.clearTimeout(autoDuckTimer.current);
     setPopped(true);
     setExpression(expr);
     setBubble(message);
-
     autoDuckTimer.current = window.setTimeout(() => {
       setPopped(false);
       setExpression('default');
       setBubble(null);
-    }, duration);
+    }, 3500);
   };
 
-  const isMountedRef = useRef(false);
-  const prevVariantRef = useRef(variant);
-  const prevDarkModeRef = useRef(isDarkMode);
-  const prevLangRef = useRef(i18n.language);
-  const prevScanningRef = useRef(isScanning);
-  const prevQrViewRef = useRef(isQrView);
-  const prevQrCopiedRef = useRef(isQrCopied);
-  const prevSummaryCopyCountRef = useRef(summaryCopyCount);
-
-  // React to every successful summary copy, including repeated taps.
+  const previousQrReady = useRef(qrReady);
   useEffect(() => {
-    if (summaryCopyCount !== prevSummaryCopyCountRef.current) {
-      prevSummaryCopyCountRef.current = summaryCopyCount;
-      triggerReaction(t('mascotShareCopied'), 'happy', 5000);
-    }
-  }, [summaryCopyCount, t]);
+    const becameReady = qrReady && !previousQrReady.current;
+    previousQrReady.current = qrReady;
+    if (becameReady) triggerReaction(t('qrCheerleader'));
+  }, [qrReady, t]);
 
-  // React to navigating to QR view
+  const previousAppearance = useRef({ variant, isDarkMode, language: i18n.language });
   useEffect(() => {
-    if (!isMountedRef.current) return;
-    if (isQrView !== prevQrViewRef.current) {
-      prevQrViewRef.current = isQrView;
-      if (isQrView) {
-        triggerReaction(t('qrCheerleader'), 'happy');
-      }
+    const previous = previousAppearance.current;
+    previousAppearance.current = { variant, isDarkMode, language: i18n.language };
+    if (variant !== previous.variant) {
+      triggerReaction(t(variant === 'sushiro' ? 'mascotReactionSushiroOn' : 'mascotReactionSushiroOff'));
+    } else if (isDarkMode !== previous.isDarkMode) {
+      triggerReaction(t(isDarkMode ? 'mascotReactionDarkMode' : 'mascotReactionLightMode'), 'wink');
+    } else if (i18n.language !== previous.language) {
+      triggerReaction(t(i18n.language === 'en' ? 'mascotReactionLangEn' : 'mascotReactionLangTh'));
     }
-  }, [isQrView, t]);
+  }, [variant, isDarkMode, i18n.language, t]);
 
-  // React to copying/downloading QR code
-  useEffect(() => {
-    if (!isMountedRef.current) return;
-    if (isQrCopied !== prevQrCopiedRef.current) {
-      prevQrCopiedRef.current = isQrCopied;
-      if (isQrCopied) {
-        triggerReaction(t('qrCheerleaderSuccess'), 'happy');
-      }
-    }
-  }, [isQrCopied, t]);
-
-  // React to bill scanning state
-  useEffect(() => {
-    if (isScanning === prevScanningRef.current) return;
-    prevScanningRef.current = isScanning;
-
-    window.clearTimeout(autoDuckTimer.current);
-    if (isScanning) {
-      setPopped(true);
-      setExpression('thinking');
-      setBubble(t('detectiveScanning'));
-    } else {
-      setPopped(true);
-      setExpression('happy');
-      setBubble(t('detectiveFound'));
-      autoDuckTimer.current = window.setTimeout(() => {
-        setPopped(false);
-        setExpression('default');
-        setBubble(null);
-      }, 3200);
-    }
-  }, [isScanning, t]);
-
-  // React to mode (Sushiro), theme (Dark/Light), or language change
-  useEffect(() => {
-    if (!isMountedRef.current) {
-      isMountedRef.current = true;
-      return;
-    }
-
-    if (isScanning) return;
-
-    if (variant !== prevVariantRef.current) {
-      prevVariantRef.current = variant;
-      const msg = variant === 'sushiro' ? t('mascotReactionSushiroOn') : t('mascotReactionSushiroOff');
-      triggerReaction(msg, 'happy');
-      return;
-    }
-
-    if (isDarkMode !== prevDarkModeRef.current) {
-      prevDarkModeRef.current = isDarkMode;
-      const msg = isDarkMode ? t('mascotReactionDarkMode') : t('mascotReactionLightMode');
-      triggerReaction(msg, 'wink');
-      return;
-    }
-
-    if (i18n.language !== prevLangRef.current) {
-      prevLangRef.current = i18n.language;
-      const msg = i18n.language === 'en' ? t('mascotReactionLangEn') : t('mascotReactionLangTh');
-      triggerReaction(msg, 'happy');
-      return;
-    }
-  }, [variant, isDarkMode, i18n.language, isScanning, t]);
-
-  // Subtle periodic ear twitch / blink when loafing every 3–5 seconds
   useEffect(() => {
     let timer: number | undefined;
     let blinkEndTimer: number | undefined;
-
     const scheduleNextBlink = () => {
-      // Random interval between 3000ms and 5000ms (3–5 seconds)
-      const nextDelay = Math.floor(Math.random() * 2000) + 3000;
       timer = window.setTimeout(() => {
-        if (!showPopped && !isScanning) {
+        if (!showPopped) {
           setExpression('blink');
           blinkEndTimer = window.setTimeout(() => {
             setExpression('default');
@@ -185,49 +111,27 @@ export function MascotPeeker({
         } else {
           scheduleNextBlink();
         }
-      }, nextDelay);
+      }, Math.floor(Math.random() * 2000) + 3000);
     };
-
     scheduleNextBlink();
-
     return () => {
-      if (timer) window.clearTimeout(timer);
-      if (blinkEndTimer) window.clearTimeout(blinkEndTimer);
+      window.clearTimeout(timer);
+      window.clearTimeout(blinkEndTimer);
     };
-  }, [showPopped, isScanning]);
+  }, [showPopped]);
 
-  function handleInteract(e?: MouseEvent) {
-    if (hasPwaPrompt) return;
-    if (isScanning) return;
-    e?.stopPropagation();
-    if (vibrate) vibrate(10);
-    window.clearTimeout(autoDuckTimer.current);
-
-    const activeQuotes = isQrView ? QR_PEEKER_QUOTES : PEEKER_QUOTES;
-
-    if (!popped) {
-      setPopped(true);
-      setExpression('happy');
-      setBubble(t(activeQuotes[quoteIndex % activeQuotes.length]));
-      setQuoteIndex((prev) => prev + 1);
-
-      autoDuckTimer.current = window.setTimeout(() => {
-        setPopped(false);
-        setExpression('default');
-        setBubble(null);
-      }, 3500);
-    } else {
-      setExpression('wink');
-      setBubble(t(activeQuotes[quoteIndex % activeQuotes.length]));
-      setQuoteIndex((prev) => prev + 1);
-
-      autoDuckTimer.current = window.setTimeout(() => {
-        setPopped(false);
-        setExpression('default');
-        setBubble(null);
-      }, 3500);
-    }
+  function handleInteract(event?: MouseEvent) {
+    event?.stopPropagation();
+    if (hasPrioritySpeech) return;
+    vibrate?.(10);
+    triggerReaction(t(PEEKER_QUOTES[quoteIndex % PEEKER_QUOTES.length]), popped ? 'wink' : 'happy');
+    setQuoteIndex(index => index + 1);
   }
+
+  const spokenText = isScanning
+    ? t('detectiveScanning')
+    : notice ? t(notice.messageKey, notice.values)
+      : qrIssueKey ? t(qrIssueKey) : bubble;
 
   return (
     <div className={`mascot-peeker-footer ${className}`}>
@@ -235,25 +139,33 @@ export function MascotPeeker({
         type="button"
         className={`mascot-peeker-btn ${isScanning ? 'is-thinking' : showPopped ? 'is-popped' : 'is-loafing'}`}
         onClick={handleInteract}
-        aria-label="Peeking pixel cat mascot. Tap to play peek-a-boo."
-        title={isScanning ? t('detectiveScanning') : "Peek-a-boo! 🐾 Tap me!"}
+        aria-label={t('mascotLabel')}
+        title={hasPrioritySpeech ? undefined : 'Peek-a-boo! 🐾'}
       >
         <PixelCat
           size={36}
-          expression={isScanning ? 'thinking' : hasPwaPrompt ? 'happy' : expression}
+          expression={isScanning || notice?.tone === 'error' ? 'thinking' : hasPrioritySpeech ? 'happy' : expression}
           variant={variant}
-          celebrating={isQrCopied}
+          celebrating={notice?.tone === 'success' && displayedNoticeId !== null}
           className={isScanning ? 'is-thinking' : ''}
         />
       </button>
-
-      {hasPwaPrompt && pwa ? <PwaMascotPrompt pwa={pwa} /> : bubble && (
+      {clearConfirmation ? (
+        <MascotBillConfirmation {...clearConfirmation} />
+      ) : notice?.tone === 'error' ? (
+        <MascotErrorBubble notice={notice} onDismiss={() => onDismissNotice?.(notice.id)} />
+      ) : isScanning ? (
+        <div className="pixel-bubble mascot-peeker-bubble" role="status" aria-live="polite">{t('detectiveScanning')}</div>
+      ) : hasPwaPrompt && pwa ? (
+        <PwaMascotPrompt pwa={pwa} />
+      ) : spokenText && (
         <div
+          id={qrIssueKey && !notice ? 'mascot-qr-validation' : undefined}
           className="pixel-bubble mascot-peeker-bubble"
           role="status"
           aria-live="polite"
         >
-          {bubble}
+          {spokenText}
         </div>
       )}
     </div>

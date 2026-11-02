@@ -247,7 +247,7 @@ export function MascotPeeker({
         />
       </button>
 
-      {hasPwaPrompt && pwa ? <PwaMascotPrompt pwa={pwa} vibrate={vibrate} /> : bubble && (
+      {hasPwaPrompt && pwa ? <PwaMascotPrompt pwa={pwa} /> : bubble && (
         <div
           className="pixel-bubble mascot-peeker-bubble"
           role="status"

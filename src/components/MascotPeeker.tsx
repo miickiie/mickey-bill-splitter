@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, type MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PixelCat, CatExpression, CatVariant } from './PixelCat';
+import type { PwaLifecycle } from '../hooks/usePwaLifecycle';
+import { PwaMascotPrompt } from './PwaMascotPrompt';
 
 const PEEKER_QUOTES = [
   'mascotPeekerQuote1',
@@ -26,6 +28,7 @@ export interface MascotPeekerProps {
   isQrView?: boolean;
   isQrCopied?: boolean;
   summaryCopyCount?: number;
+  pwa?: PwaLifecycle;
   vibrate?: (pattern: number | number[]) => void;
 }
 
@@ -37,6 +40,7 @@ export function MascotPeeker({
   isQrView = false,
   isQrCopied = false,
   summaryCopyCount = 0,
+  pwa,
   vibrate,
 }: MascotPeekerProps) {
   const { t, i18n } = useTranslation();
@@ -45,10 +49,20 @@ export function MascotPeeker({
   const [bubble, setBubble] = useState<string | null>(null);
   const [quoteIndex, setQuoteIndex] = useState(0);
   const autoDuckTimer = useRef<number | undefined>(undefined);
+  const hasPwaPrompt = Boolean(pwa?.updateAvailable || pwa?.installOffer);
+  const showPopped = hasPwaPrompt || popped;
 
   useEffect(() => () => window.clearTimeout(autoDuckTimer.current), []);
 
+  useEffect(() => {
+    window.clearTimeout(autoDuckTimer.current);
+    setPopped(false);
+    setExpression('default');
+    setBubble(null);
+  }, [hasPwaPrompt]);
+
   const triggerReaction = (message: string, expr: CatExpression = 'happy', duration = 3500) => {
+    if (hasPwaPrompt) return;
     window.clearTimeout(autoDuckTimer.current);
     setPopped(true);
     setExpression(expr);
@@ -162,7 +176,7 @@ export function MascotPeeker({
       // Random interval between 3000ms and 5000ms (3–5 seconds)
       const nextDelay = Math.floor(Math.random() * 2000) + 3000;
       timer = window.setTimeout(() => {
-        if (!popped && !isScanning) {
+        if (!showPopped && !isScanning) {
           setExpression('blink');
           blinkEndTimer = window.setTimeout(() => {
             setExpression('default');
@@ -180,9 +194,10 @@ export function MascotPeeker({
       if (timer) window.clearTimeout(timer);
       if (blinkEndTimer) window.clearTimeout(blinkEndTimer);
     };
-  }, [popped, isScanning]);
+  }, [showPopped, isScanning]);
 
   function handleInteract(e?: MouseEvent) {
+    if (hasPwaPrompt) return;
     if (isScanning) return;
     e?.stopPropagation();
     if (vibrate) vibrate(10);
@@ -218,21 +233,21 @@ export function MascotPeeker({
     <div className={`mascot-peeker-footer ${className}`}>
       <button
         type="button"
-        className={`mascot-peeker-btn ${isScanning ? 'is-thinking' : popped ? 'is-popped' : 'is-loafing'}`}
+        className={`mascot-peeker-btn ${isScanning ? 'is-thinking' : showPopped ? 'is-popped' : 'is-loafing'}`}
         onClick={handleInteract}
         aria-label="Peeking pixel cat mascot. Tap to play peek-a-boo."
         title={isScanning ? t('detectiveScanning') : "Peek-a-boo! 🐾 Tap me!"}
       >
         <PixelCat
           size={36}
-          expression={isScanning ? 'thinking' : expression}
+          expression={isScanning ? 'thinking' : hasPwaPrompt ? 'happy' : expression}
           variant={variant}
           celebrating={isQrCopied}
           className={isScanning ? 'is-thinking' : ''}
         />
       </button>
 
-      {bubble && (
+      {hasPwaPrompt && pwa ? <PwaMascotPrompt pwa={pwa} vibrate={vibrate} /> : bubble && (
         <div
           className="pixel-bubble mascot-peeker-bubble"
           role="status"

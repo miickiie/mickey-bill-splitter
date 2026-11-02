@@ -278,6 +278,12 @@
   transform: rotate(45deg);
 }
 
+.mascot-peeker-bubble-action {
+  pointer-events: auto;
+  display: block;
+  text-align: left;
+}
+
 /* 5. Keypad Watching Buddy */
 .keypad-mascot-wrap {
   display: flex;

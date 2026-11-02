@@ -9,7 +9,6 @@ import {
   UserPlus, 
   ReceiptText,
   Check,
-  X,
   Share2,
   Copy,
   Camera,
@@ -774,103 +773,6 @@ export default function App() {
           </div>
         </div>
       </header>
-
-      {/* PWA update/install banner */}
-      {updateAvailable ? (
-        <div className="max-w-xl mx-auto px-6 pt-4">
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl flex items-center justify-between shadow-lg shadow-indigo-200"
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center font-bold text-lg shrink-0">
-                🔄
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-wider">{t('updateAvailable')}</p>
-                <p className="text-sm text-indigo-100 font-medium">
-                  {updateError ? t('updateFailed') : t('updateAvailableDesc')}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  vibrate(10);
-                  void applyUpdate();
-                }}
-                disabled={updateInProgress}
-                className="px-3.5 py-2 bg-white text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-50 active:scale-95 transition-all shadow-sm cursor-pointer disabled:cursor-wait disabled:opacity-70"
-              >
-                {updateInProgress
-                  ? t('updatingApp')
-                  : updateError
-                    ? t('retryUpdate')
-                    : t('refreshApp')}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  vibrate(10);
-                  dismissUpdate();
-                }}
-                disabled={updateInProgress}
-                className="px-2.5 py-2 rounded-lg text-xs font-bold text-white/90 hover:text-white hover:bg-white/15 active:scale-95 transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {t('later')}
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      ) : installOffer && (
-        <div className="max-w-xl mx-auto px-6 pt-4">
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl flex items-center justify-between shadow-lg shadow-indigo-200"
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center font-bold text-lg shrink-0">
-                📲
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-wider">{t('installApp')}</p>
-                <p className="text-sm text-indigo-100 font-medium">
-                  {installOffer === 'ios' ? t('installIosDesc') : t('installAppDesc')}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              {installOffer === 'native' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    vibrate(10);
-                    void requestInstall();
-                  }}
-                  className="px-3.5 py-2 bg-white text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-50 active:scale-95 transition-all shadow-sm cursor-pointer"
-                >
-                  {t('installApp')}
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  vibrate(10);
-                  dismissInstall();
-                }}
-                className="w-9 h-9 flex items-center justify-center rounded-lg text-white/80 hover:text-white hover:bg-white/15 active:scale-95 transition-all cursor-pointer"
-                aria-label={t('dismissInstallApp')}
-                title={t('dismissInstallApp')}
-              >
-                <X size={18} />
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
 
       {/* Reset Confirmation Modal */}
       <AnimatePresence>
@@ -1640,6 +1542,7 @@ export default function App() {
           isQrView={currentView === 'qr'}
           isQrCopied={copiedQRId !== null}
           summaryCopyCount={summaryCopyCount}
+          pwa={{ installOffer, requestInstall, dismissInstall, updateAvailable, updateInProgress, updateError, applyUpdate, dismissUpdate }}
           vibrate={vibrate} 
         />
         <div className="glass-card rounded-[2rem] p-4 flex items-center justify-between gap-4">

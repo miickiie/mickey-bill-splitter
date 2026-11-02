@@ -25,6 +25,7 @@ export interface MascotPeekerProps {
   isScanning?: boolean;
   isQrView?: boolean;
   isQrCopied?: boolean;
+  summaryCopyCount?: number;
   vibrate?: (pattern: number | number[]) => void;
 }
 
@@ -35,6 +36,7 @@ export function MascotPeeker({
   isScanning = false,
   isQrView = false,
   isQrCopied = false,
+  summaryCopyCount = 0,
   vibrate,
 }: MascotPeekerProps) {
   const { t, i18n } = useTranslation();
@@ -44,7 +46,9 @@ export function MascotPeeker({
   const [quoteIndex, setQuoteIndex] = useState(0);
   const autoDuckTimer = useRef<number | undefined>(undefined);
 
-  const triggerReaction = (message: string, expr: CatExpression = 'happy') => {
+  useEffect(() => () => window.clearTimeout(autoDuckTimer.current), []);
+
+  const triggerReaction = (message: string, expr: CatExpression = 'happy', duration = 3500) => {
     window.clearTimeout(autoDuckTimer.current);
     setPopped(true);
     setExpression(expr);
@@ -54,7 +58,7 @@ export function MascotPeeker({
       setPopped(false);
       setExpression('default');
       setBubble(null);
-    }, 3500);
+    }, duration);
   };
 
   const isMountedRef = useRef(false);
@@ -64,6 +68,15 @@ export function MascotPeeker({
   const prevScanningRef = useRef(isScanning);
   const prevQrViewRef = useRef(isQrView);
   const prevQrCopiedRef = useRef(isQrCopied);
+  const prevSummaryCopyCountRef = useRef(summaryCopyCount);
+
+  // React to every successful summary copy, including repeated taps.
+  useEffect(() => {
+    if (summaryCopyCount !== prevSummaryCopyCountRef.current) {
+      prevSummaryCopyCountRef.current = summaryCopyCount;
+      triggerReaction(t('mascotShareCopied'), 'happy', 5000);
+    }
+  }, [summaryCopyCount, t]);
 
   // React to navigating to QR view
   useEffect(() => {

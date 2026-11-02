@@ -172,6 +172,7 @@ export default function App() {
     return false;
   });
   const [showCopied, setShowCopied] = useState(false);
+  const [summaryCopyCount, setSummaryCopyCount] = useState(0);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -507,6 +508,7 @@ export default function App() {
 
     try {
       await navigator.clipboard.writeText(text);
+      setSummaryCopyCount(count => count + 1);
       setShowCopied(true);
       setTimeout(() => setShowCopied(false), 2000);
     } catch (error) {
@@ -1637,6 +1639,7 @@ export default function App() {
           isScanning={isScanning} 
           isQrView={currentView === 'qr'}
           isQrCopied={copiedQRId !== null}
+          summaryCopyCount={summaryCopyCount}
           vibrate={vibrate} 
         />
         <div className="glass-card rounded-[2rem] p-4 flex items-center justify-between gap-4">

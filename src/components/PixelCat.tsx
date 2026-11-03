@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { useCatGaze } from '../hooks/useCatGaze';
 
 export type { CatExpression, CatVariant } from '../pixelCatDataUrl';
 export { getPixelCatDataUrl } from '../pixelCatDataUrl';
@@ -31,6 +32,7 @@ export function PixelCat({
   title = 'Spliittrr cat companion',
 }: PixelCatProps) {
   const currentExpression: CatExpression = celebrating ? 'happy' : expression;
+  const { catRef, eyesRef } = useCatGaze(currentExpression);
   const gridHeight = 12;
 
   // Palette
@@ -48,6 +50,7 @@ export function PixelCat({
 
   return (
     <svg
+      ref={catRef}
       viewBox={`0 0 16 ${gridHeight}`}
       width={size}
       height={(size * gridHeight) / 16}
@@ -118,99 +121,23 @@ export function PixelCat({
         <rect x="7" y="4" width="2" height="1" fill={headbandRed} />
       )}
       <rect x="15" y="4" width="1" height="1" fill={outline} />
-      {currentExpression === 'thinking' && (
-        <>
-          <rect x="4" y="4" width="2" height="1" fill={eye} />
-          <rect x="12" y="4" width="2" height="1" fill={eye} />
-        </>
-      )}
 
       {/* Row 5: Upper eyes & chubby cheeks */}
       <rect x="0" y="5" width="1" height="1" fill={outline} />
       <rect x="1" y="5" width="14" height="1" fill={face} />
       <rect x="15" y="5" width="1" height="1" fill={outline} />
 
-      {/* Row 5 Eye details */}
-      {(currentExpression === 'default' || currentExpression === 'wink') && (
-        <rect x="3" y="5" width="2" height="1" fill={eye} />
-      )}
-      {currentExpression === 'default' && (
-        <rect x="11" y="5" width="2" height="1" fill={eye} />
-      )}
-      {currentExpression === 'happy' && (
-        <>
-          <rect x="3" y="5" width="2" height="1" fill={eye} />
-          <rect x="11" y="5" width="2" height="1" fill={eye} />
-        </>
-      )}
-      {currentExpression === 'thinking' && (
-        <>
-          <rect x="4" y="5" width="2" height="1" fill={eye} />
-          <rect x="12" y="5" width="2" height="1" fill={eye} />
-        </>
-      )}
-      {currentExpression === 'shocked' && (
-        <>
-          <rect x="3" y="5" width="2" height="1" fill={eye} />
-          <rect x="11" y="5" width="2" height="1" fill={eye} />
-        </>
-      )}
 
       {/* Row 6: Lower eyes & chubby cheeks */}
       <rect x="0" y="6" width="1" height="1" fill={outline} />
       <rect x="1" y="6" width="14" height="1" fill={face} />
       <rect x="15" y="6" width="1" height="1" fill={outline} />
 
-      {/* Row 6 Eye details */}
-      {currentExpression === 'default' && (
-        <>
-          <rect x="3" y="6" width="2" height="1" fill={eye} />
-          <rect x="11" y="6" width="2" height="1" fill={eye} />
-        </>
-      )}
-      {currentExpression === 'blink' && (
-        <>
-          <rect x="3" y="6" width="2" height="1" fill={eye} />
-          <rect x="11" y="6" width="2" height="1" fill={eye} />
-        </>
-      )}
-      {currentExpression === 'wink' && (
-        <>
-          <rect x="3" y="6" width="2" height="1" fill={eye} />
-          <rect x="11" y="6" width="2" height="1" fill={eye} />
-        </>
-      )}
-      {currentExpression === 'happy' && (
-        <>
-          <rect x="2" y="6" width="1" height="1" fill={eye} />
-          <rect x="5" y="6" width="1" height="1" fill={eye} />
-          <rect x="10" y="6" width="1" height="1" fill={eye} />
-          <rect x="13" y="6" width="1" height="1" fill={eye} />
-        </>
-      )}
-      {currentExpression === 'lookDown' && (
-        <>
-          <rect x="3" y="6" width="2" height="1" fill={eye} />
-          <rect x="11" y="6" width="2" height="1" fill={eye} />
-        </>
-      )}
-      {currentExpression === 'shocked' && (
-        <>
-          <rect x="3" y="6" width="2" height="1" fill={eye} />
-          <rect x="11" y="6" width="2" height="1" fill={eye} />
-        </>
-      )}
 
       {/* Row 7: Cute pink nose & chubby cheeks */}
       <rect x="0" y="7" width="1" height="1" fill={outline} />
       <rect x="1" y="7" width="14" height="1" fill={face} />
       <rect x="7" y="7" width="2" height="1" fill={nose} />
-      {currentExpression === 'lookDown' && (
-        <>
-          <rect x="3" y="7" width="2" height="1" fill={eye} />
-          <rect x="11" y="7" width="2" height="1" fill={eye} />
-        </>
-      )}
       <rect x="15" y="7" width="1" height="1" fill={outline} />
 
       {/* Row 8: Blush cheeks */}
@@ -238,6 +165,44 @@ export function PixelCat({
 
       {/* Row 11: Chin bottom outline */}
       <rect x="3" y="11" width="10" height="1" fill={outline} />
+
+      {/* Draw eyes over the completed face so gaze movement cannot be painted over. */}
+      <g ref={eyesRef} className="pixel-cat-eyes">
+        {currentExpression === 'thinking' ? (
+          <>
+            <rect x="4" y="4" width="2" height="2" fill={eye} />
+            <rect x="12" y="4" width="2" height="2" fill={eye} />
+          </>
+        ) : (
+          <>
+            {['default', 'wink', 'happy', 'shocked'].includes(currentExpression) && (
+              <rect x="3" y="5" width="2" height="1" fill={eye} />
+            )}
+            {['default', 'happy', 'shocked'].includes(currentExpression) && (
+              <rect x="11" y="5" width="2" height="1" fill={eye} />
+            )}
+            {currentExpression === 'happy' ? (
+              <>
+                <rect x="2" y="6" width="1" height="1" fill={eye} />
+                <rect x="5" y="6" width="1" height="1" fill={eye} />
+                <rect x="10" y="6" width="1" height="1" fill={eye} />
+                <rect x="13" y="6" width="1" height="1" fill={eye} />
+              </>
+            ) : (
+              <>
+                <rect x="3" y="6" width="2" height="1" fill={eye} />
+                <rect x="11" y="6" width="2" height="1" fill={eye} />
+              </>
+            )}
+            {currentExpression === 'lookDown' && (
+              <>
+                <rect x="3" y="7" width="2" height="1" fill={eye} />
+                <rect x="11" y="7" width="2" height="1" fill={eye} />
+              </>
+            )}
+          </>
+        )}
+      </g>
     </svg>
   );
 }

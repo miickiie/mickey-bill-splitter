@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" shape-rendering="crispEdges">
+  <title>Spliittrr pixel cat and receipt</title>
+  <path fill="#8439fc" d="M0 0h128v128H0z" />
+  <g id="mascot">
+    <path fill="#4e586d" d="M28 28h12v6h6v6h36v-6h6v-6h12v6h6v18h6v30h-6v6h-6v6h-6v6H34v-6h-6v-6h-6v-6h-6V52h6V34h6z" />
+    <path fill="#f9f0e7" d="M28 34h6v12h60V34h6v18h6v30h-6v6h-6v6H34v-6h-6v-6h-6V52h6z" />
+    <path fill="#f872bf" d="M34 34h6v6h6v6H34zM88 34h6v12H82v-6h6z" />
+    <path fill="#272f45" d="M34 58h12v6H34zM28 64h6v6h-6zM46 64h6v6h-6zM82 58h12v6H82zM76 64h6v6h-6zM94 64h6v6h-6z" />
+    <path fill="#fac4ea" d="M22 76h12v6H22zM94 76h12v6H94z" />
+    <path fill="#f96978" d="M58 70h12v6H58z" />
+    <path fill="#ec3656" d="M58 76h12v6H58z" />
+    <g id="receipt">
+      <path fill="#4e586d" d="M88 82h21.5v2.5h2.5V108h-2v2.5h-5V108h-3.5v2.5h-5V108H93v2.5h-5V108h-2.5V84.5H88z" />
+      <path fill="#fefdfd" d="M88.5 85H109v22.5h-3.5v-2H101v2h-3.5v-2h-5v2h-4z" />
+      <path fill="#4e586d" d="M92 89h13.5v2.5H92zM92 94.5h13.5V97H92zM92 99.5h10.5v2.5H92z" />
+    </g>
+  </g>
+</svg>

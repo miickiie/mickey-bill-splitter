@@ -721,7 +721,7 @@ export default function App() {
               title={t('toggleTheme')}
             >
               <img
-                src={`${import.meta.env.BASE_URL}favicon.svg`}
+                src={`${import.meta.env.BASE_URL}app-logo.svg`}
                 alt=""
                 aria-hidden="true"
                 className="w-full h-full"

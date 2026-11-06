@@ -10,6 +10,7 @@ import {
   ReceiptText,
   Share2,
   Copy,
+  Check,
   Camera,
   QrCode,
   Phone,
@@ -36,6 +37,8 @@ import { getPixelCatDataUrl } from './components/PixelCat';
 import { THEMES, THEME_STORAGE_KEY, nextTheme, resolveTheme, type ThemeId } from './themes';
 
 let cachedConfetti: typeof import('canvas-confetti') | null = null;
+
+const COPY_FEEDBACK_DURATION_MS = 2000;
 
 const INITIAL_PLATES: Plates = {
   white: 0,
@@ -171,9 +174,13 @@ export default function App() {
   const followingTheme = THEMES.find((candidate) => candidate.id === nextTheme(themeId)) ?? THEMES[0];
   const isDarkMode = theme.colorScheme === 'dark';
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showCopied, setShowCopied] = useState(false);
+  const summaryCopyTimeoutRef = useRef<number | undefined>(undefined);
   const [isScanning, setIsScanning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scanGenerationRef = useRef(0);
+  useEffect(() => () => window.clearTimeout(summaryCopyTimeoutRef.current), []);
+
   const { notice: mascotNotice, notify, dismissNotice, clearNotices } = useMascotNotifications({
     suspendAll: showResetConfirm,
     suspendTransient: isScanning || updateAvailable || Boolean(installOffer),
@@ -373,7 +380,29 @@ export default function App() {
   const updateIndividualDiscount = useCallback((personId: string, discount: number) => {
     setPeople(prev => prev.map(p => (
       p.id === personId
-        ? { ...p, individualDiscount: sanitizeNonNegativeNumber(discount) }
+        ? {
+            ...p,
+            individualDiscount: sanitizeNonNegativeNumber(
+              discount,
+              p.individualDiscountType === 'percentage' ? 100 : undefined,
+            ),
+          }
+        : p
+    )));
+  }, []);
+
+  const updateIndividualDiscountType = useCallback((personId: string, discountType: 'amount' | 'percentage') => {
+    vibrate(10);
+    setPeople(prev => prev.map(p => (
+      p.id === personId
+        ? {
+            ...p,
+            individualDiscountType: discountType,
+            individualDiscount: sanitizeNonNegativeNumber(
+              p.individualDiscount,
+              discountType === 'percentage' ? 100 : undefined,
+            ),
+          }
         : p
     )));
   }, []);
@@ -502,6 +531,11 @@ export default function App() {
 
     try {
       await navigator.clipboard.writeText(text);
+      setShowCopied(true);
+      window.clearTimeout(summaryCopyTimeoutRef.current);
+      summaryCopyTimeoutRef.current = window.setTimeout(() => {
+        setShowCopied(false);
+      }, COPY_FEEDBACK_DURATION_MS);
       notify('mascotShareCopied', 'success', 'summary');
     } catch (error) {
       console.error('Failed to copy summary', error);
@@ -1121,11 +1155,30 @@ export default function App() {
                     )}
                   </div>
 
-                  <div className="pt-6 border-t border-slate-50 flex items-end justify-between">
+                  <div className="pt-6 border-t border-slate-50 flex flex-wrap items-end justify-between gap-4">
                     <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-500 uppercase tracking-widest leading-none block ml-1">{t('individualDiscount')}</label>
+                      <div className="flex flex-wrap items-center gap-2 ml-1">
+                        <label htmlFor={`discount-${person.id}`} className="text-xs font-bold text-slate-500 uppercase tracking-widest leading-none">{t('individualDiscount')}</label>
+                        <div className="flex bg-slate-200/50 p-0.5 rounded-lg shrink-0">
+                          <button
+                            type="button"
+                            aria-label={`${person.name} - ${t('individualDiscount')} (฿)`}
+                            aria-pressed={person.individualDiscountType !== 'percentage'}
+                            onClick={() => updateIndividualDiscountType(person.id, 'amount')}
+                            className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${person.individualDiscountType !== 'percentage' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                          >฿</button>
+                          <button
+                            type="button"
+                            aria-label={`${person.name} - ${t('individualDiscount')} (%)`}
+                            aria-pressed={person.individualDiscountType === 'percentage'}
+                            onClick={() => updateIndividualDiscountType(person.id, 'percentage')}
+                            className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${person.individualDiscountType === 'percentage' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                          >%</button>
+                        </div>
+                      </div>
                       <div className="relative w-32 group/disc">
                         <input 
+                          id={`discount-${person.id}`}
                           type="text"
                           readOnly
                           value={person.individualDiscount ? String(person.individualDiscount) : ''}
@@ -1134,26 +1187,32 @@ export default function App() {
                             `${person.name} - ${t('individualDiscount')}`,
                             person.individualDiscount || 0,
                             (val) => updateIndividualDiscount(person.id, val),
-                            '฿',
+                            person.individualDiscountType === 'percentage' ? '%' : '฿',
+                            person.individualDiscountType === 'percentage' ? 100 : undefined,
                           )}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
+                            if (!activeKeypad && (e.key === 'Enter' || e.key === ' ')) {
                               e.preventDefault();
+                              e.stopPropagation();
                               openKeypad(
                                 `discount-${person.id}`,
                                 `${person.name} - ${t('individualDiscount')}`,
                                 person.individualDiscount || 0,
                                 (val) => updateIndividualDiscount(person.id, val),
-                                '฿',
+                                person.individualDiscountType === 'percentage' ? '%' : '฿',
+                                person.individualDiscountType === 'percentage' ? 100 : undefined,
                               );
                             }
                           }}
-                          className="w-full text-base font-bold glass-input rounded-[1rem] px-4 py-2.5 placeholder:text-slate-500 text-slate-900 cursor-pointer"
+                          className="w-full text-base font-bold glass-input rounded-[1rem] pl-4 pr-9 py-2.5 placeholder:text-slate-500 text-slate-900 cursor-pointer"
                           placeholder="0.00"
                         />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-500 font-extrabold pointer-events-none">
+                          {person.individualDiscountType === 'percentage' ? '%' : '฿'}
+                        </span>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="ml-auto text-right">
                       <p className="text-xs font-bold text-slate-600 uppercase tracking-widest mb-1">{t('yourTotal')}</p>
                       <p className="text-3xl font-extrabold text-indigo-700 tabular-nums tracking-tighter">
                         ฿{(peopleTotalsById.get(person.id)?.finalShare ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -1320,7 +1379,7 @@ export default function App() {
                   onClick={copySummary}
                   className="p-5 vibrant-gradient text-white rounded-[1.5rem] hover:scale-105 active:scale-95 transition-all shadow-[0_10px_40px_rgba(99,102,241,0.4)] flex items-center gap-2"
                 >
-                  <Copy size={24} strokeWidth={2.5} />
+                  {showCopied ? <Check size={24} strokeWidth={3} /> : <Copy size={24} strokeWidth={2.5} />}
                 </button>
               </div>
             </div>
@@ -1535,10 +1594,31 @@ export default function App() {
               onClick={copySummary}
               className="h-14 w-28 vibrant-gradient text-white rounded-[1.25rem] flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all overflow-hidden relative cursor-pointer"
             >
-              <span className="flex items-center gap-1.5">
-                <Share2 size={16} strokeWidth={2.5} />
-                <span className="text-xs font-bold uppercase tracking-wider">{t('share')}</span>
-              </span>
+              <AnimatePresence initial={false} mode="wait">
+                {showCopied ? (
+                  <motion.div
+                    key="copied"
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: -20, opacity: 0 }}
+                    className="flex items-center gap-1.5"
+                  >
+                    <Check size={16} strokeWidth={3} />
+                    <span className="text-xs font-bold uppercase tracking-wider">{t('copied')}</span>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="share"
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: -20, opacity: 0 }}
+                    className="flex items-center gap-1.5"
+                  >
+                    <Share2 size={16} strokeWidth={2.5} />
+                    <span className="text-xs font-bold uppercase tracking-wider">{t('share')}</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </button>
           </div>
         </div>

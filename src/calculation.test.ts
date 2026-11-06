@@ -191,3 +191,86 @@ test('supports custom service charge and VAT rates', () => {
   assertClose(result.vatTotal, 10.5);
   assertClose(result.grandTotal, 115.5);
 });
+
+test('supports separate percentage and amount discounts including shared items and plates', () => {
+  const result = calculateBill(
+    [
+      {
+        ...person('percentage', [item('meal', 100), item('excluded', 40, {excludeDiscount: true})], 10),
+        individualDiscountType: 'percentage',
+        plates: {white: 1, red: 0, silver: 0, gold: 0, black: 1},
+      },
+      person('amount', [item('meal-two', 200)], 15),
+    ],
+    [item('shared', 200), item('excluded-shared', 100, {excludeDiscount: true})],
+    settings({isSushiroMode: true}),
+  );
+
+  assert.equal(result.totalIndividualDiscounts, 48);
+  assert.deepEqual(result.peopleTotals, [
+    {personId: 'percentage', finalShare: 387},
+    {personId: 'amount', finalShare: 335},
+  ]);
+  assert.equal(result.grandTotal, 722);
+});
+
+test('applies personal percentages before or after taxes using the eligible subtotal', () => {
+  const people: Person[] = [{
+    ...person('one', [
+      item('meal', 100),
+      item('excluded', 50, {excludeDiscount: true, excludeServiceCharge: true, excludeVat: true}),
+    ], 20),
+    individualDiscountType: 'percentage',
+  }];
+
+  const before = calculateBill(people, [], settings({hasServiceCharge: true, hasVat: true}));
+  const after = calculateBill(people, [], settings({
+    hasServiceCharge: true,
+    hasVat: true,
+    discountTiming: 'after',
+  }));
+
+  assert.equal(before.totalIndividualDiscounts, 20);
+  assertClose(before.serviceChargeTotal, 8);
+  assertClose(before.vatTotal, 6.16);
+  assertClose(before.grandTotal, 144.16);
+  assert.equal(after.totalIndividualDiscounts, 20);
+  assertClose(after.serviceChargeTotal, 10);
+  assertClose(after.vatTotal, 7.7);
+  assertClose(after.grandTotal, 147.7);
+});
+
+test('caps personal percentages and applies shared discounts only to remaining capacity', () => {
+  const result = calculateBill(
+    [
+      {...person('full', [item('meal', 100)], 250), individualDiscountType: 'percentage'},
+      {...person('half', [item('meal-two', 100)], 50), individualDiscountType: 'percentage'},
+    ],
+    [],
+    settings({sharedDiscount: 100, sharedDiscountType: 'percentage'}),
+  );
+
+  assert.equal(result.totalIndividualDiscounts, 150);
+  assert.equal(result.totalSharedDiscount, 50);
+  assert.equal(result.grandTotal, 0);
+  assert.deepEqual(result.peopleTotals, [
+    {personId: 'full', finalShare: 0},
+    {personId: 'half', finalShare: 0},
+  ]);
+});
+
+test('ignores invalid personal percentages and leaves excluded items undiscounted', () => {
+  for (const discount of [-10, Number.NaN, Number.POSITIVE_INFINITY, 50]) {
+    const result = calculateBill(
+      [{
+        ...person('one', [item('meal', 100), item('excluded', 100, {excludeDiscount: true})], discount),
+        individualDiscountType: 'percentage',
+      }],
+      [],
+      settings(),
+    );
+
+    assert.equal(result.totalIndividualDiscounts, discount === 50 ? 50 : 0);
+    assert.equal(result.grandTotal, discount === 50 ? 150 : 200);
+  }
+});

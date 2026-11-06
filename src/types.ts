@@ -20,6 +20,7 @@ export interface Person {
   name: string;
   items: Item[];
   individualDiscount: number;
+  individualDiscountType?: 'amount' | 'percentage';
   plates?: Plates;
 }
 

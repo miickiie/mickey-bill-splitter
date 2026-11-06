@@ -131,12 +131,15 @@ export function calculateBill(
     0,
   );
 
-  const appliedIndividualDiscounts = contexts.map((context, index) => (
-    Math.min(
-      sanitizeNonNegativeNumber(people[index]?.individualDiscount ?? 0),
-      context.discountCapacity,
-    )
-  ));
+  const appliedIndividualDiscounts = contexts.map((context, index) => {
+    const person = people[index];
+    const discountInput = sanitizeNonNegativeNumber(person.individualDiscount);
+    const requestedDiscount = person.individualDiscountType === 'percentage'
+      ? context.discountableSubtotal * (Math.min(discountInput, 100) / 100)
+      : discountInput;
+
+    return Math.min(requestedDiscount, context.discountCapacity);
+  });
   const remainingDiscountCapacities = contexts.map(
     (context, index) => context.discountCapacity - appliedIndividualDiscounts[index],
   );

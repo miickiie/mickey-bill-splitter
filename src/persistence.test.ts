@@ -34,6 +34,7 @@ test('sanitizes persisted numeric values and optional settings', () => {
   assert.ok(result);
   assert.equal(result.people[0].items[0].price, 0);
   assert.equal(result.people[0].individualDiscount, 0);
+  assert.equal(result.people[0].individualDiscountType, 'amount');
   assert.equal(result.people[0].plates?.white, 1);
   assert.equal(result.settings.sharedDiscount, 100);
   assert.equal(result.settings.discountTiming, 'before');
@@ -62,4 +63,29 @@ test('persists custom service charge and vat rates', () => {
   assert.ok(result);
   assert.equal(result.settings.serviceChargeRate, 15);
   assert.equal(result.settings.vatRate, 10);
+});
+
+test('restores personal discount modes and caps percentages without capping amounts', () => {
+  const result = parseStoredBillState(JSON.stringify({
+    people: [
+      {id: 'percentage', name: 'Percentage', items: [], individualDiscount: 12.5, individualDiscountType: 'percentage'},
+      {id: 'capped', name: 'Capped', items: [], individualDiscount: 250, individualDiscountType: 'percentage'},
+      {id: 'amount', name: 'Amount', items: [], individualDiscount: 250, individualDiscountType: 'amount'},
+      {id: 'legacy', name: 'Legacy', items: [], individualDiscount: 250},
+    ],
+    sharedItems: [],
+    settings: {sharedDiscount: 0},
+  }));
+
+  assert.ok(result);
+  assert.deepEqual(
+    result.people.map(({individualDiscount, individualDiscountType}) => ({individualDiscount, individualDiscountType})),
+    [
+      {individualDiscount: 12.5, individualDiscountType: 'percentage'},
+      {individualDiscount: 100, individualDiscountType: 'percentage'},
+      {individualDiscount: 250, individualDiscountType: 'amount'},
+      {individualDiscount: 250, individualDiscountType: 'amount'},
+    ],
+  );
+  assert.deepEqual(parseStoredBillState(JSON.stringify(result)), result);
 });

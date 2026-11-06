@@ -78,11 +78,16 @@ const parsePerson = (value: unknown): Person | null => {
     return null;
   }
 
+  const individualDiscountType = value.individualDiscountType === 'percentage' ? 'percentage' : 'amount';
+
   return {
     id: value.id,
     name: value.name,
     items: items as Item[],
-    individualDiscount,
+    individualDiscount: individualDiscountType === 'percentage'
+      ? Math.min(individualDiscount, 100)
+      : individualDiscount,
+    individualDiscountType,
     ...(plates ? { plates } : {}),
   };
 };

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback, type ChangeEvent } from 'react';
+import { useState, useMemo, useEffect, useLayoutEffect, useRef, useCallback, type ChangeEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -34,6 +34,7 @@ import { SushiroPlateSelector } from './components/SushiroPlateSelector';
 import './pixel-cat.css';
 import { MascotPeeker } from './components/MascotPeeker';
 import { getPixelCatDataUrl } from './components/PixelCat';
+import { THEMES, THEME_STORAGE_KEY, nextTheme, resolveTheme, type ThemeId } from './themes';
 
 let cachedConfetti: typeof import('canvas-confetti') | null = null;
 
@@ -163,15 +164,15 @@ export default function App() {
   );
   const latestBillStateRef = useRef({ people, sharedItems, settings });
   latestBillStateRef.current = { people, sharedItems, settings };
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('bill-splitter-theme');
-      if (saved) return saved === 'dark';
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    return false;
-  });
+  const [themeId, setThemeId] = useState<ThemeId>(() => resolveTheme(
+    localStorage.getItem(THEME_STORAGE_KEY),
+    window.matchMedia('(prefers-color-scheme: dark)').matches,
+  ));
+  const theme = THEMES.find((candidate) => candidate.id === themeId) ?? THEMES[0];
+  const followingTheme = THEMES.find((candidate) => candidate.id === nextTheme(themeId)) ?? THEMES[0];
+  const isDarkMode = theme.colorScheme === 'dark';
   const [showCopied, setShowCopied] = useState(false);
+  const [summaryCopyCount, setSummaryCopyCount] = useState(0);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -256,15 +257,17 @@ export default function App() {
     };
   }, []);
 
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('bill-splitter-theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('bill-splitter-theme', 'light');
-    }
-  }, [isDarkMode]);
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    root.dataset.theme = themeId;
+    root.classList.toggle('dark', isDarkMode);
+    root.style.colorScheme = theme.colorScheme;
+    root.style.backgroundColor = isDarkMode ? 'var(--color-slate-900)' : 'var(--color-slate-50)';
+    document.querySelector('meta[name="theme-color"]')?.setAttribute(
+      'content', getComputedStyle(root).backgroundColor,
+    );
+    localStorage.setItem(THEME_STORAGE_KEY, themeId);
+  }, [themeId, isDarkMode, theme.colorScheme]);
 
   useEffect(() => {
     const language = i18n.resolvedLanguage ?? i18n.language;
@@ -507,6 +510,7 @@ export default function App() {
 
     try {
       await navigator.clipboard.writeText(text);
+      setSummaryCopyCount(count => count + 1);
       setShowCopied(true);
       setTimeout(() => setShowCopied(false), 2000);
     } catch (error) {
@@ -715,10 +719,10 @@ export default function App() {
         <div className="max-w-xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => { vibrate(10); setIsDarkMode(!isDarkMode); }}
-              className="w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center bg-white shadow-xl shadow-indigo-200 hover:scale-105 active:scale-95 transition-all outline-none overflow-hidden"
-              aria-label={t('toggleTheme')}
-              title={t('toggleTheme')}
+              onClick={() => { vibrate(10); setThemeId((current) => nextTheme(current)); }}
+              className="w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center bg-gradient-to-br from-indigo-500 via-indigo-600 to-indigo-800 dark:from-indigo-700 dark:via-indigo-800 dark:to-indigo-950 shadow-xl shadow-indigo-200 hover:scale-105 active:scale-95 transition-all outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-4 focus-visible:ring-offset-slate-50 dark:focus-visible:ring-offset-slate-900 overflow-hidden"
+              aria-label={t('toggleTheme', { current: theme.name, next: followingTheme.name })}
+              title={t('toggleTheme', { current: theme.name, next: followingTheme.name })}
             >
               <img
                 src={`${import.meta.env.BASE_URL}app-logo.svg`}
@@ -1170,7 +1174,7 @@ export default function App() {
                 initial={{ opacity: 0, y: 30, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-                className="glass-card rounded-[2.5rem] group"
+                className="glass-card member-card rounded-[2.5rem] group"
               >
                 <div className="p-7 space-y-7">
                   <div className="flex items-center justify-between gap-4">
@@ -1633,10 +1637,11 @@ export default function App() {
       <footer className="fixed footer-safe-bottom left-1/2 -translate-x-1/2 z-40 w-full max-w-sm px-4">
         <MascotPeeker 
           variant={mascotVariant} 
-          isDarkMode={isDarkMode} 
+          themeName={theme.name}
           isScanning={isScanning} 
           isQrView={currentView === 'qr'}
           isQrCopied={copiedQRId !== null}
+                summaryCopyCount={summaryCopyCount}
           vibrate={vibrate} 
         />
         <div className="glass-card rounded-[2rem] p-4 flex items-center justify-between gap-4">

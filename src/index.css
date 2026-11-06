@@ -2,7 +2,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: "Sora", "Manrope", "Noto Sans Thai", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Sora", "Manrope", "Noto Sans Thai Looped", ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
@@ -11,18 +11,29 @@
   }
   body {
     @apply bg-slate-50 text-slate-900 font-sans antialiased transition-colors duration-300;
-    background-color: #f8fafc;
+    background-color: var(--color-slate-50);
+    position: relative;
+    isolation: isolate;
+  }
+
+  /* Keep the viewport gradients separate from interactive backdrop-filter surfaces. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
     background-image: 
-      radial-gradient(ellipse at top left, rgba(99, 102, 241, 0.08), transparent 50%),
-      radial-gradient(ellipse at top right, rgba(236, 72, 153, 0.05), transparent 50%),
-      radial-gradient(ellipse at bottom center, rgba(168, 85, 247, 0.06), transparent 50%);
-    background-attachment: fixed;
+      radial-gradient(ellipse at top left, color-mix(in srgb, var(--color-indigo-400) 12%, transparent), transparent 50%),
+      radial-gradient(ellipse at top right, color-mix(in srgb, var(--theme-gradient-end) 8%, transparent), transparent 50%),
+      radial-gradient(ellipse at bottom center, color-mix(in srgb, var(--color-indigo-300) 10%, transparent), transparent 50%);
+    transform: translateZ(0);
   }
 }
 
 :root.dark body {
     @apply !bg-slate-900 !text-slate-100;
-    background-color: #0f172a !important;
+    background-color: var(--color-slate-900) !important;
 }
 
 :root.dark {
@@ -85,7 +96,7 @@
 }
 
 .glass-dark {
-  @apply bg-slate-900/70 backdrop-blur-3xl border border-white/10 saturate-[1.2] relative;
+  @apply bg-slate-900/95 backdrop-blur-3xl border border-white/10 saturate-[1.2] relative;
   box-shadow: 
     0 20px 50px -10px rgba(0,0,0,0.3),
     inset 0 1px 0 rgba(255,255,255,0.15);
@@ -95,18 +106,261 @@
   @apply bg-white/50 backdrop-blur-md border border-white/50 shadow-inner outline-none transition-all focus:bg-white/80 focus:border-indigo-300;
 }
 
+/* Keep member totals independent of neighboring hover animations. */
+.member-card,
+.member-card .glass-input,
+.member-card .backdrop-blur-md {
+  isolation: isolate;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
 :root.dark .glass-input {
   @apply !bg-slate-800/50 !border-slate-700/50 focus:!bg-slate-700/80 focus:!border-indigo-500 !text-slate-100 placeholder:!text-slate-400;
 }
 
 .vibrant-gradient {
-  @apply bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500;
-
+  background-image: linear-gradient(135deg, var(--theme-gradient-start), var(--theme-gradient-middle), var(--theme-gradient-end));
 }
 
 .vibrant-gradient-light {
-  @apply bg-gradient-to-br from-indigo-600 via-indigo-500 to-purple-500;
+  background-image: linear-gradient(135deg, var(--theme-gradient-start), var(--theme-gradient-middle), var(--theme-gradient-end));
+}
 
+:root {
+  --theme-gradient-start: var(--color-indigo-700);
+  --theme-gradient-middle: var(--color-indigo-600);
+  --theme-gradient-end: var(--color-purple-700);
+}
+
+:root[data-theme="light"] {
+  --color-slate-400: #475569;
+  --color-slate-500: #526177;
+  --color-indigo-500: #5143d9;
+}
+
+:root[data-theme="dark"] {
+  --color-slate-400: #a7b8d0;
+  --color-slate-500: #94a3b8;
+}
+
+:root[data-theme="champagne"] {
+  --color-slate-50: #fbf7ef;
+  --color-slate-100: #f1e9dc;
+  --color-slate-200: #e3d7c4;
+  --color-slate-300: #cdbb9f;
+  --color-slate-400: #796850;
+  --color-slate-500: #6c5a44;
+  --color-slate-600: #5d4c39;
+  --color-slate-700: #493a2b;
+  --color-slate-800: #30271e;
+  --color-slate-900: #241d16;
+  --color-slate-950: #17120d;
+  --color-indigo-50: #fbf1df;
+  --color-indigo-100: #f4e3c1;
+  --color-indigo-200: #e7ca91;
+  --color-indigo-300: #d7ad67;
+  --color-indigo-400: #a2702b;
+  --color-indigo-500: #916124;
+  --color-indigo-600: #80521e;
+  --color-indigo-700: #6d431c;
+  --color-indigo-800: #58361b;
+  --color-indigo-900: #422b19;
+  --color-indigo-950: #29180b;
+  --theme-gradient-start: #77501f;
+  --theme-gradient-middle: #865326;
+  --theme-gradient-end: #974a36;
+}
+
+:root[data-theme="ocean"] {
+  --color-slate-50: #f0f8fc;
+  --color-slate-100: #e1eff5;
+  --color-slate-200: #c7dde8;
+  --color-slate-300: #a4c3d3;
+  --color-slate-400: #547080;
+  --color-slate-500: #466473;
+  --color-slate-600: #375361;
+  --color-slate-700: #2b424f;
+  --color-slate-800: #1d303e;
+  --color-slate-900: #142836;
+  --color-slate-950: #0b1924;
+  --color-indigo-50: #e7f4fc;
+  --color-indigo-100: #d0e9f8;
+  --color-indigo-200: #a3d2ef;
+  --color-indigo-300: #71b7e0;
+  --color-indigo-400: #2775a6;
+  --color-indigo-500: #186798;
+  --color-indigo-600: #145a8c;
+  --color-indigo-700: #114c78;
+  --color-indigo-800: #103e61;
+  --color-indigo-900: #10334e;
+  --color-indigo-950: #082035;
+  --theme-gradient-start: #145aa3;
+  --theme-gradient-middle: #176c8e;
+  --theme-gradient-end: #17645f;
+}
+
+:root[data-theme="rose"] {
+  --color-slate-50: #fff4f5;
+  --color-slate-100: #f7e5e9;
+  --color-slate-200: #ebcdd6;
+  --color-slate-300: #d7acba;
+  --color-slate-400: #886371;
+  --color-slate-500: #795361;
+  --color-slate-600: #684450;
+  --color-slate-700: #553440;
+  --color-slate-800: #3c2631;
+  --color-slate-900: #2e1b26;
+  --color-slate-950: #1e1019;
+  --color-indigo-50: #fff0f3;
+  --color-indigo-100: #fbdde6;
+  --color-indigo-200: #f2b9ce;
+  --color-indigo-300: #e592af;
+  --color-indigo-400: #bd4c75;
+  --color-indigo-500: #ae3d66;
+  --color-indigo-600: #9d355b;
+  --color-indigo-700: #862c50;
+  --color-indigo-800: #6e2844;
+  --color-indigo-900: #58233a;
+  --color-indigo-950: #361122;
+  --theme-gradient-start: #963d5c;
+  --theme-gradient-middle: #a53f58;
+  --theme-gradient-end: #94472d;
+}
+
+:root[data-theme="midnight"] {
+  --color-slate-50: #faf5e9;
+  --color-slate-100: #f3e9d6;
+  --color-slate-200: #e1d2b8;
+  --color-slate-300: #d0bd9a;
+  --color-slate-400: #bba98c;
+  --color-slate-500: #a48f6f;
+  --color-slate-600: #796449;
+  --color-slate-700: #42372c;
+  --color-slate-800: #2b241f;
+  --color-slate-900: #191613;
+  --color-slate-950: #100d0b;
+  --color-indigo-50: #fff7e3;
+  --color-indigo-100: #f8e8bc;
+  --color-indigo-200: #edd394;
+  --color-indigo-300: #e4bf72;
+  --color-indigo-400: #d9ac59;
+  --color-indigo-500: #ae8037;
+  --color-indigo-600: #815b1b;
+  --color-indigo-700: #6b481a;
+  --color-indigo-800: #52391a;
+  --color-indigo-900: #3b2a16;
+  --color-indigo-950: #281b0e;
+  --theme-gradient-start: #6b481a;
+  --theme-gradient-middle: #7c5420;
+  --theme-gradient-end: #834139;
+}
+
+:root[data-theme="emerald"] {
+  --color-slate-50: #eefbf5;
+  --color-slate-100: #dcf3e9;
+  --color-slate-200: #bfdfd1;
+  --color-slate-300: #a5ccbb;
+  --color-slate-400: #91b9ae;
+  --color-slate-500: #78a194;
+  --color-slate-600: #527b6e;
+  --color-slate-700: #28483e;
+  --color-slate-800: #18372e;
+  --color-slate-900: #0d241e;
+  --color-slate-950: #071813;
+  --color-indigo-50: #e8fff5;
+  --color-indigo-100: #c7f9e3;
+  --color-indigo-200: #9beccc;
+  --color-indigo-300: #70dcb5;
+  --color-indigo-400: #52c8a2;
+  --color-indigo-500: #269975;
+  --color-indigo-600: #0e7056;
+  --color-indigo-700: #0b5e4a;
+  --color-indigo-800: #0b4a3b;
+  --color-indigo-900: #0b392e;
+  --color-indigo-950: #05271e;
+  --theme-gradient-start: #075e4f;
+  --theme-gradient-middle: #0e6d5b;
+  --theme-gradient-end: #15546b;
+}
+
+:root[data-theme="amethyst"] {
+  --color-slate-50: #faf3ff;
+  --color-slate-100: #efe2fa;
+  --color-slate-200: #dec9ed;
+  --color-slate-300: #cdb3e0;
+  --color-slate-400: #bea6d2;
+  --color-slate-500: #a98dbc;
+  --color-slate-600: #806294;
+  --color-slate-700: #493356;
+  --color-slate-800: #33213f;
+  --color-slate-900: #201529;
+  --color-slate-950: #150c1d;
+  --color-indigo-50: #faf0ff;
+  --color-indigo-100: #f1dfff;
+  --color-indigo-200: #e3c1fa;
+  --color-indigo-300: #d4a3f2;
+  --color-indigo-400: #c38aea;
+  --color-indigo-500: #9e64cd;
+  --color-indigo-600: #7d40ac;
+  --color-indigo-700: #62358a;
+  --color-indigo-800: #4e2b6c;
+  --color-indigo-900: #3a2151;
+  --color-indigo-950: #281238;
+  --theme-gradient-start: #62369f;
+  --theme-gradient-middle: #793ba0;
+  --theme-gradient-end: #8b3569;
+}
+
+/* Keep the summary's muted labels legible on its permanently dark surface. */
+:root[data-theme] .glass-dark .text-slate-400,
+:root[data-theme] .glass-dark .text-slate-400\/80 {
+  color: var(--color-slate-200) !important;
+}
+
+:root[data-theme] .glass-dark .text-indigo-400 {
+  color: var(--color-indigo-200) !important;
+}
+
+:root[data-theme] .glass-dark .group:hover .group-hover\:text-indigo-400 {
+  color: var(--color-indigo-200) !important;
+}
+
+:root.dark .bg-indigo-50,
+:root.dark .bg-indigo-100 {
+  background-color: var(--color-indigo-950) !important;
+}
+
+:root.dark .text-indigo-900 {
+  color: var(--color-indigo-200) !important;
+}
+
+:root[data-theme] .glass-card,
+:root[data-theme] .glass-dark,
+:root[data-theme] header {
+  filter: none;
+}
+
+.glass-input::placeholder {
+  color: var(--color-slate-500);
+  opacity: 1;
+}
+
+:root[data-theme] .text-slate-400\/80,
+:root.dark .dark\:text-slate-500\/80 {
+  color: var(--color-slate-400);
+}
+
+:root:not(.dark) .text-rose-500 {
+  color: var(--color-rose-700);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme] *,
+  :root[data-theme] *::before,
+  :root[data-theme] *::after {
+    transition-duration: 0s !important;
+  }
 }
 
 .hide-scrollbar::-webkit-scrollbar {

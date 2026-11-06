@@ -21,20 +21,22 @@ const QR_PEEKER_QUOTES = [
 export interface MascotPeekerProps {
   variant?: CatVariant;
   className?: string;
-  isDarkMode?: boolean;
+  themeName: string;
   isScanning?: boolean;
   isQrView?: boolean;
   isQrCopied?: boolean;
+  summaryCopyCount?: number;
   vibrate?: (pattern: number | number[]) => void;
 }
 
 export function MascotPeeker({
   variant = 'food',
   className = '',
-  isDarkMode,
+  themeName,
   isScanning = false,
   isQrView = false,
   isQrCopied = false,
+  summaryCopyCount = 0,
   vibrate,
 }: MascotPeekerProps) {
   const { t, i18n } = useTranslation();
@@ -59,11 +61,18 @@ export function MascotPeeker({
 
   const isMountedRef = useRef(false);
   const prevVariantRef = useRef(variant);
-  const prevDarkModeRef = useRef(isDarkMode);
+  const prevThemeNameRef = useRef(themeName);
   const prevLangRef = useRef(i18n.language);
   const prevScanningRef = useRef(isScanning);
   const prevQrViewRef = useRef(isQrView);
   const prevQrCopiedRef = useRef(isQrCopied);
+  const prevSummaryCopyCountRef = useRef(summaryCopyCount);
+
+  useEffect(() => {
+    if (summaryCopyCount === prevSummaryCopyCountRef.current) return;
+    prevSummaryCopyCountRef.current = summaryCopyCount;
+    triggerReaction(t('mascotReactionSummaryCopied'), 'happy');
+  }, [summaryCopyCount, t]);
 
   // React to navigating to QR view
   useEffect(() => {
@@ -109,7 +118,7 @@ export function MascotPeeker({
     }
   }, [isScanning, t]);
 
-  // React to mode (Sushiro), theme (Dark/Light), or language change
+  // React to mode (Sushiro), theme, or language change
   useEffect(() => {
     if (!isMountedRef.current) {
       isMountedRef.current = true;
@@ -125,9 +134,9 @@ export function MascotPeeker({
       return;
     }
 
-    if (isDarkMode !== prevDarkModeRef.current) {
-      prevDarkModeRef.current = isDarkMode;
-      const msg = isDarkMode ? t('mascotReactionDarkMode') : t('mascotReactionLightMode');
+    if (themeName !== prevThemeNameRef.current) {
+      prevThemeNameRef.current = themeName;
+      const msg = t('mascotReactionTheme', { theme: themeName });
       triggerReaction(msg, 'wink');
       return;
     }
@@ -138,7 +147,7 @@ export function MascotPeeker({
       triggerReaction(msg, 'happy');
       return;
     }
-  }, [variant, isDarkMode, i18n.language, isScanning, t]);
+  }, [variant, themeName, i18n.language, isScanning, t]);
 
   // Subtle periodic ear twitch / blink when loafing every 3–5 seconds
   useEffect(() => {

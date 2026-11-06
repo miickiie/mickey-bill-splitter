@@ -64,7 +64,7 @@
     "updatingApp": "Updating…",
     "retryUpdate": "Try again",
     "updateFailed": "Update failed. Please try again.",
-    "toggleTheme": "Toggle light and dark theme",
+    "toggleTheme": "Theme: {{current}}. Switch to {{next}}",
     "changeLanguage": "Change language",
     "discount": "Discount",
     "serviceCharge": "Service Charge",
@@ -96,10 +96,10 @@
     "detectiveFound": "Items extracted! Purr-fect 🎉",
     "qrCheerleader": "QR is ready! Go get that cash 💸",
     "qrCheerleaderSuccess": "QR copied! Sent to the group chat 📲",
+    "mascotReactionSummaryCopied": "The bill is on your clipboard. Paste it to share!",
     "mascotReactionSushiroOn": "Chef mode activated! 🍣",
     "mascotReactionSushiroOff": "Back to regular dining mode! 🍛",
-    "mascotReactionDarkMode": "Night mode! So cozy 🌙",
-    "mascotReactionLightMode": "Bright and clear! ☀️",
+    "mascotReactionTheme": "Switched to the {{theme}} theme! ✨",
     "mascotReactionLangEn": "Switched to English! ✨",
     "mascotReactionLangTh": "เปลี่ยนเป็นภาษาไทยแล้วครับ! 🐾"
   }

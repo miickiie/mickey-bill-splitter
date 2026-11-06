@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useEffect, useRef, type CSSProperties } from 'react';
 
 export type { CatExpression, CatVariant } from '../pixelCatDataUrl';
 export { getPixelCatDataUrl } from '../pixelCatDataUrl';
@@ -13,6 +13,111 @@ export interface PixelCatProps {
   style?: CSSProperties;
   onClick?: () => void;
   title?: string;
+}
+
+function useCatGaze() {
+  const catRef = useRef<SVGSVGElement>(null);
+  const eyesRef = useRef<SVGGElement>(null);
+
+  useEffect(() => {
+    const cat = catRef.current;
+    const eyes = eyesRef.current;
+    if (!cat || !eyes) return;
+
+    let point: { x: number; y: number } | null = null;
+    let target: Element | null = null;
+    let frame: number | null = null;
+    let inputMethod = '';
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const setTransition = () => {
+      eyes.style.transition = reducedMotion.matches ? 'none' : 'transform 100ms ease-out';
+    };
+    setTransition();
+
+    const update = () => {
+      frame = null;
+      if (target?.isConnected) {
+        const bounds = target.getBoundingClientRect();
+        point = { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 };
+      }
+
+      const bounds = cat.getBoundingClientRect();
+      if (!point || !bounds.width || !bounds.height) {
+        eyes.style.transform = 'translate(0px, 0px)';
+        return;
+      }
+
+      // Work in the cat's 16x12 grid and keep the eyes inside its face.
+      const dx = ((point.x - bounds.left) / bounds.width) * 16 - 8;
+      const dy = ((point.y - bounds.top) / bounds.height) * 12 - 6;
+      const distance = Math.max(8, Math.hypot(dx, dy));
+      eyes.style.transform = `translate(${(dx / distance) * 0.75}px, ${(dy / distance) * 0.5}px)`;
+    };
+    const scheduleUpdate = () => {
+      if (frame === null) frame = window.requestAnimationFrame(update);
+    };
+    const followPointer = (event: PointerEvent) => {
+      if (event.pointerType !== 'mouse' || !event.isPrimary) return;
+      inputMethod = 'mouse';
+      target = null;
+      point = { x: event.clientX, y: event.clientY };
+      scheduleUpdate();
+    };
+    const followInteraction = (event: PointerEvent) => {
+      if (!event.isPrimary) return;
+      inputMethod = event.pointerType;
+      if (event.pointerType === 'mouse') {
+        followPointer(event);
+        return;
+      }
+      target = event.target instanceof Element
+        ? event.target.closest('button, input, textarea, select, a, [role="button"], [contenteditable="true"]')
+        : null;
+      point = { x: event.clientX, y: event.clientY };
+      scheduleUpdate();
+    };
+    const followFocus = (event: FocusEvent) => {
+      if (inputMethod === 'mouse' || !(event.target instanceof Element)) return;
+      target = event.target;
+      scheduleUpdate();
+    };
+    const useKeyboard = () => {
+      inputMethod = 'keyboard';
+    };
+    const reset = () => {
+      target = null;
+      point = null;
+      scheduleUpdate();
+    };
+    const leave = (event: PointerEvent) => {
+      if (event.pointerType === 'mouse') reset();
+    };
+
+    document.addEventListener('pointermove', followPointer, { passive: true });
+    document.addEventListener('pointerdown', followInteraction, { passive: true });
+    document.addEventListener('focusin', followFocus);
+    document.addEventListener('keydown', useKeyboard);
+    document.addEventListener('pointerleave', leave);
+    document.addEventListener('scroll', scheduleUpdate, { passive: true, capture: true });
+    window.addEventListener('resize', scheduleUpdate);
+    window.addEventListener('blur', reset);
+    reducedMotion.addEventListener('change', setTransition);
+
+    return () => {
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      document.removeEventListener('pointermove', followPointer);
+      document.removeEventListener('pointerdown', followInteraction);
+      document.removeEventListener('focusin', followFocus);
+      document.removeEventListener('keydown', useKeyboard);
+      document.removeEventListener('pointerleave', leave);
+      document.removeEventListener('scroll', scheduleUpdate, true);
+      window.removeEventListener('resize', scheduleUpdate);
+      window.removeEventListener('blur', reset);
+      reducedMotion.removeEventListener('change', setTransition);
+    };
+  }, []);
+
+  return { catRef, eyesRef };
 }
 
 /**
@@ -30,8 +135,13 @@ export function PixelCat({
   onClick,
   title = 'Spliittrr cat companion',
 }: PixelCatProps) {
+  const { catRef, eyesRef } = useCatGaze();
   const currentExpression: CatExpression = celebrating ? 'happy' : expression;
   const gridHeight = 12;
+  const eyeY = currentExpression === 'thinking' ? 4
+    : currentExpression === 'blink' || currentExpression === 'lookDown' ? 6 : 5;
+  const eyeHeight = currentExpression === 'blink' ? 1 : 2;
+  const eyeOffset = currentExpression === 'thinking' ? 1 : 0;
 
   // Palette
   const outline = '#475569';
@@ -48,14 +158,13 @@ export function PixelCat({
 
   return (
     <svg
+      ref={catRef}
       viewBox={`0 0 16 ${gridHeight}`}
       width={size}
       height={(size * gridHeight) / 16}
       className={`pixel-cat-svg ${celebrating ? 'is-celebrating' : ''} ${currentExpression === 'thinking' ? 'is-thinking' : ''} ${currentExpression === 'shocked' ? 'is-shocked' : ''} ${className}`}
-      shapeRendering="crispEdges"
+      shapeRendering="geometricPrecision"
       style={{
-        imageRendering: 'pixelated',
-        shapeRendering: 'crispEdges',
         overflow: 'visible',
         ...style,
       }}
@@ -65,179 +174,53 @@ export function PixelCat({
       aria-label={title}
       onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
     >
-      {/* Row 0: Ear tips (2px wide each) + optional Sushiro Salmon sushi */}
-      <rect x="2" y="0" width="2" height="1" fill={outline} />
-      <rect x="12" y="0" width="2" height="1" fill={outline} />
+      {/* Continuous fills avoid seams between pixel rows during transforms. */}
+      <path
+        d="M2 0H4V1H5V2H11V1H12V0H14V1H15V4H16V9H15V10H14V11H13V12H3V11H2V10H1V9H0V4H1V1H2Z"
+        fill={outline}
+      />
+      <path
+        d="M2 1H4V2H5V3H11V2H12V1H14V4H15V9H14V10H13V11H3V10H2V9H1V4H2Z"
+        fill={face}
+      />
+      <path d="M3 1H4V2H5V3H3Z M12 1H13V3H11V2H12Z" fill={innerEar} />
+
       {variant === 'sushiro' && (
         <>
+          <rect x="6" y="0" width="4" height="2" fill={sushiRice} />
           <rect x="6" y="0" width="4" height="1" fill={sushiSalmon} />
           <rect x="7" y="0" width="1" height="1" fill="#fed7aa" />
-          <rect x="8" y="0" width="1" height="1" fill={sushiNori} />
+          <rect x="8" y="0" width="1" height="2" fill={sushiNori} />
+          <rect x="2" y="3" width="12" height="1" fill={sushiRice} />
+          <rect x="7" y="3" width="2" height="2" fill={headbandRed} />
         </>
       )}
 
-      {/* Row 1: Ears upper section + sushi base in Sushiro mode */}
-      <rect x="1" y="1" width="1" height="1" fill={outline} />
-      <rect x="2" y="1" width="1" height="1" fill={face} />
-      <rect x="3" y="1" width="1" height="1" fill={innerEar} />
-      <rect x="4" y="1" width="1" height="1" fill={outline} />
-
-      {variant === 'sushiro' && (
-        <>
-          <rect x="6" y="1" width="4" height="1" fill={sushiRice} />
-          <rect x="8" y="1" width="1" height="1" fill={sushiNori} />
-        </>
-      )}
-
-      <rect x="11" y="1" width="1" height="1" fill={outline} />
-      <rect x="12" y="1" width="1" height="1" fill={innerEar} />
-      <rect x="13" y="1" width="1" height="1" fill={face} />
-      <rect x="14" y="1" width="1" height="1" fill={outline} />
-
-      {/* Row 2: Lower ears + top of head bridge */}
-      <rect x="1" y="2" width="1" height="1" fill={outline} />
-      <rect x="2" y="2" width="1" height="1" fill={face} />
-      <rect x="3" y="2" width="2" height="1" fill={innerEar} />
-      <rect x="5" y="2" width="6" height="1" fill={outline} />
-      <rect x="11" y="2" width="2" height="1" fill={innerEar} />
-      <rect x="13" y="2" width="1" height="1" fill={face} />
-      <rect x="14" y="2" width="1" height="1" fill={outline} />
-
-      {/* Row 3: Forehead / Sushiro Chef Headband */}
-      <rect x="1" y="3" width="1" height="1" fill={outline} />
-      <rect x="2" y="3" width="12" height="1" fill={variant === 'sushiro' ? '#ffffff' : face} />
-      {variant === 'sushiro' && (
-        <rect x="7" y="3" width="2" height="1" fill={headbandRed} />
-      )}
-      <rect x="14" y="3" width="1" height="1" fill={outline} />
-
-      {/* Row 4: Puffy cheeks top */}
-      <rect x="0" y="4" width="1" height="1" fill={outline} />
-      <rect x="1" y="4" width="14" height="1" fill={face} />
-      {variant === 'sushiro' && (
-        <rect x="7" y="4" width="2" height="1" fill={headbandRed} />
-      )}
-      <rect x="15" y="4" width="1" height="1" fill={outline} />
-      {currentExpression === 'thinking' && (
-        <>
-          <rect x="4" y="4" width="2" height="1" fill={eye} />
-          <rect x="12" y="4" width="2" height="1" fill={eye} />
-        </>
-      )}
-
-      {/* Row 5: Upper eyes & chubby cheeks */}
-      <rect x="0" y="5" width="1" height="1" fill={outline} />
-      <rect x="1" y="5" width="14" height="1" fill={face} />
-      <rect x="15" y="5" width="1" height="1" fill={outline} />
-
-      {/* Row 5 Eye details */}
-      {(currentExpression === 'default' || currentExpression === 'wink') && (
-        <rect x="3" y="5" width="2" height="1" fill={eye} />
-      )}
-      {currentExpression === 'default' && (
-        <rect x="11" y="5" width="2" height="1" fill={eye} />
-      )}
-      {currentExpression === 'happy' && (
-        <>
-          <rect x="3" y="5" width="2" height="1" fill={eye} />
-          <rect x="11" y="5" width="2" height="1" fill={eye} />
-        </>
-      )}
-      {currentExpression === 'thinking' && (
-        <>
-          <rect x="4" y="5" width="2" height="1" fill={eye} />
-          <rect x="12" y="5" width="2" height="1" fill={eye} />
-        </>
-      )}
-      {currentExpression === 'shocked' && (
-        <>
-          <rect x="3" y="5" width="2" height="1" fill={eye} />
-          <rect x="11" y="5" width="2" height="1" fill={eye} />
-        </>
-      )}
-
-      {/* Row 6: Lower eyes & chubby cheeks */}
-      <rect x="0" y="6" width="1" height="1" fill={outline} />
-      <rect x="1" y="6" width="14" height="1" fill={face} />
-      <rect x="15" y="6" width="1" height="1" fill={outline} />
-
-      {/* Row 6 Eye details */}
-      {currentExpression === 'default' && (
-        <>
-          <rect x="3" y="6" width="2" height="1" fill={eye} />
-          <rect x="11" y="6" width="2" height="1" fill={eye} />
-        </>
-      )}
-      {currentExpression === 'blink' && (
-        <>
-          <rect x="3" y="6" width="2" height="1" fill={eye} />
-          <rect x="11" y="6" width="2" height="1" fill={eye} />
-        </>
-      )}
-      {currentExpression === 'wink' && (
-        <>
-          <rect x="3" y="6" width="2" height="1" fill={eye} />
-          <rect x="11" y="6" width="2" height="1" fill={eye} />
-        </>
-      )}
-      {currentExpression === 'happy' && (
-        <>
-          <rect x="2" y="6" width="1" height="1" fill={eye} />
-          <rect x="5" y="6" width="1" height="1" fill={eye} />
-          <rect x="10" y="6" width="1" height="1" fill={eye} />
-          <rect x="13" y="6" width="1" height="1" fill={eye} />
-        </>
-      )}
-      {currentExpression === 'lookDown' && (
-        <>
-          <rect x="3" y="6" width="2" height="1" fill={eye} />
-          <rect x="11" y="6" width="2" height="1" fill={eye} />
-        </>
-      )}
-      {currentExpression === 'shocked' && (
-        <>
-          <rect x="3" y="6" width="2" height="1" fill={eye} />
-          <rect x="11" y="6" width="2" height="1" fill={eye} />
-        </>
-      )}
-
-      {/* Row 7: Cute pink nose & chubby cheeks */}
-      <rect x="0" y="7" width="1" height="1" fill={outline} />
-      <rect x="1" y="7" width="14" height="1" fill={face} />
       <rect x="7" y="7" width="2" height="1" fill={nose} />
-      {currentExpression === 'lookDown' && (
-        <>
-          <rect x="3" y="7" width="2" height="1" fill={eye} />
-          <rect x="11" y="7" width="2" height="1" fill={eye} />
-        </>
-      )}
-      <rect x="15" y="7" width="1" height="1" fill={outline} />
-
-      {/* Row 8: Blush cheeks */}
-      <rect x="0" y="8" width="1" height="1" fill={outline} />
       <rect x="1" y="8" width="2" height="1" fill={blush} />
-      <rect x="3" y="8" width="10" height="1" fill={face} />
       <rect x="13" y="8" width="2" height="1" fill={blush} />
-      <rect x="15" y="8" width="1" height="1" fill={outline} />
       {(celebrating || currentExpression === 'shocked') && (
-        <rect x="7" y="8" width="2" height="1" fill={openMouth} />
+        <rect x="7" y="8" width="2" height={currentExpression === 'shocked' ? 2 : 1} fill={openMouth} />
       )}
 
-      {/* Row 9: Lower cheeks tapering inward */}
-      <rect x="1" y="9" width="1" height="1" fill={outline} />
-      <rect x="2" y="9" width="12" height="1" fill={face} />
-      {currentExpression === 'shocked' && (
-        <rect x="7" y="9" width="2" height="1" fill={openMouth} />
-      )}
-      <rect x="14" y="9" width="1" height="1" fill={outline} />
-
-      {/* Row 10: Chin tapering inward */}
-      <rect x="2" y="10" width="1" height="1" fill={outline} />
-      <rect x="3" y="10" width="10" height="1" fill={face} />
-      <rect x="13" y="10" width="1" height="1" fill={outline} />
-
-      {/* Row 11: Chin bottom outline */}
-      <rect x="3" y="11" width="10" height="1" fill={outline} />
+      {/* Keep eye movement independent from the mascot's body animations. */}
+      <g ref={eyesRef} className="pixel-cat-eyes" fill={eye}>
+        {currentExpression === 'happy' ? (
+          <>
+            <rect x="3" y="5" width="2" height="1" />
+            <rect x="11" y="5" width="2" height="1" />
+            <rect x="2" y="6" width="1" height="1" />
+            <rect x="5" y="6" width="1" height="1" />
+            <rect x="10" y="6" width="1" height="1" />
+            <rect x="13" y="6" width="1" height="1" />
+          </>
+        ) : (
+          <>
+            <rect x={3 + eyeOffset} y={eyeY} width="2" height={eyeHeight} />
+            <rect x={11 + eyeOffset} y={currentExpression === 'wink' ? 6 : eyeY} width="2" height={currentExpression === 'wink' ? 1 : eyeHeight} />
+          </>
+        )}
+      </g>
     </svg>
   );
 }

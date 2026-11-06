@@ -1,44 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#4f39f6"/>
-      <stop offset="0.03125" stop-color="#503cf7"/>
-      <stop offset="0.0625" stop-color="#513ff8"/>
-      <stop offset="0.09375" stop-color="#5241f8"/>
-      <stop offset="0.125" stop-color="#5344f9"/>
-      <stop offset="0.15625" stop-color="#5446fa"/>
-      <stop offset="0.1875" stop-color="#5649fa"/>
-      <stop offset="0.21875" stop-color="#574bfb"/>
-      <stop offset="0.25" stop-color="#584dfc"/>
-      <stop offset="0.28125" stop-color="#5950fc"/>
-      <stop offset="0.3125" stop-color="#5a52fd"/>
-      <stop offset="0.34375" stop-color="#5b54fe"/>
-      <stop offset="0.375" stop-color="#5d56fe"/>
-      <stop offset="0.40625" stop-color="#5e59ff"/>
-      <stop offset="0.4375" stop-color="#5f5bff"/>
-      <stop offset="0.46875" stop-color="#605dff"/>
-      <stop offset="0.5" stop-color="#615fff"/>
-      <stop offset="0.53125" stop-color="#675eff"/>
-      <stop offset="0.5625" stop-color="#6d5dff"/>
-      <stop offset="0.59375" stop-color="#725cff"/>
-      <stop offset="0.625" stop-color="#775bff"/>
-      <stop offset="0.65625" stop-color="#7c59ff"/>
-      <stop offset="0.6875" stop-color="#8158ff"/>
-      <stop offset="0.71875" stop-color="#8657ff"/>
-      <stop offset="0.75" stop-color="#8a55ff"/>
-      <stop offset="0.78125" stop-color="#8f54ff"/>
-      <stop offset="0.8125" stop-color="#9352ff"/>
-      <stop offset="0.84375" stop-color="#9851ff"/>
-      <stop offset="0.875" stop-color="#9c4fff"/>
-      <stop offset="0.90625" stop-color="#a04dff"/>
-      <stop offset="0.9375" stop-color="#a54bff"/>
-      <stop offset="0.96875" stop-color="#a949ff"/>
-      <stop offset="1" stop-color="#ad46ff"/>
-    </linearGradient>
-  </defs>
-  <rect width="64" height="64" rx="16" fill="url(#bg)"/>
-  <path d="M20 13h24a4 4 0 0 1 4 4v34l-4-2.5-4 2.5-4-2.5-4 2.5-4-2.5-4 2.5-4-2.5-4 2.5V17a4 4 0 0 1 4-4Z" fill="#fff"/>
-  <path d="M24 24h16M24 32h16M24 40h7" fill="none" stroke="#4f46e5" stroke-width="4" stroke-linecap="round"/>
-  <circle cx="43" cy="40" r="7" fill="#22c55e"/>
-  <path d="M40 40h6M43 37v6" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" shape-rendering="crispEdges">
+  <title>Spliittrr pixel cat and receipt</title>
+  <path fill="#8439fc" d="M0 0h128v128H0z" />
+  <g id="mascot">
+    <path fill="#4e586d" d="M28 28h12v6h6v6h36v-6h6v-6h12v6h6v18h6v30h-6v6h-6v6h-6v6H34v-6h-6v-6h-6v-6h-6V52h6V34h6z" />
+    <path fill="#f9f0e7" d="M28 34h6v12h60V34h6v18h6v30h-6v6h-6v6H34v-6h-6v-6h-6V52h6z" />
+    <path fill="#f872bf" d="M34 34h6v6h6v6H34zM88 34h6v12H82v-6h6z" />
+    <path fill="#272f45" d="M34 58h12v6H34zM28 64h6v6h-6zM46 64h6v6h-6zM82 58h12v6H82zM76 64h6v6h-6zM94 64h6v6h-6z" />
+    <path fill="#fac4ea" d="M22 76h12v6H22zM94 76h12v6H94z" />
+    <path fill="#f96978" d="M58 70h12v6H58z" />
+    <path fill="#ec3656" d="M58 76h12v6H58z" />
+    <g id="receipt">
+      <path fill="#4e586d" d="M88 82h21.5v2.5h2.5V108h-2v2.5h-5V108h-3.5v2.5h-5V108H93v2.5h-5V108h-2.5V84.5H88z" />
+      <path fill="#fefdfd" d="M88.5 85H109v22.5h-3.5v-2H101v2h-3.5v-2h-5v2h-4z" />
+      <path fill="#4e586d" d="M92 89h13.5v2.5H92zM92 94.5h13.5V97H92zM92 99.5h10.5v2.5H92z" />
+    </g>
+  </g>
 </svg>

@@ -15,7 +15,13 @@ export default defineConfig({
       manifest: false,
       includeAssets: [
         'manifest.json',
+        'app-logo.svg',
+        'app-logo.png',
+        'icon.svg',
+        'icon-maskable.svg',
+        'favicon.ico',
         'favicon.svg',
+        'favicon-16.png',
         'favicon-32.png',
         'apple-touch-icon.png',
         'icon-192.png',

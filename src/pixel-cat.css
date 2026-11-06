@@ -13,6 +13,15 @@
   cursor: pointer;
 }
 
+.pixel-cat-eyes {
+  transition: transform 90ms ease-out;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pixel-cat-eyes { transition: none; }
+}
+
 .pixel-cat-svg[role="button"]:hover {
   transform: translateY(-2px) scale(1.05);
 }
@@ -276,6 +285,12 @@
   left: auto;
   bottom: -5px;
   transform: rotate(45deg);
+}
+
+.mascot-peeker-bubble-action {
+  pointer-events: auto;
+  display: block;
+  text-align: left;
 }
 
 /* 5. Keypad Watching Buddy */

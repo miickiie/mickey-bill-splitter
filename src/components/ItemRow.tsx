@@ -108,8 +108,8 @@ export const ItemRow: React.FC<ItemRowProps> = React.memo(({
             onRemove();
           }}
           className="p-1 sm:p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all shrink-0 cursor-pointer"
-          aria-label={t('clear')}
-          title={t('clear')}
+          aria-label={t('removeItem', { name: item.name || placeholderName })}
+          title={t('removeItem', { name: item.name || placeholderName })}
         >
           <X size={18} />
         </button>

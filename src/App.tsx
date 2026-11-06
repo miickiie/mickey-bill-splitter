@@ -8,8 +8,6 @@ import {
   Settings2, 
   UserPlus, 
   ReceiptText,
-  Check,
-  X,
   Share2,
   Copy,
   Camera,
@@ -25,6 +23,7 @@ import { Person, Item, BillSettings, Plates } from './types';
 import generatePayload from 'promptpay-qr';
 import { QRCodeCanvas } from 'qrcode.react';
 import { usePwaLifecycle } from './hooks/usePwaLifecycle';
+import { useMascotNotifications } from './hooks/useMascotNotifications';
 import { calculateBill, sanitizeNonNegativeNumber } from './calculation';
 import { BILL_STATE_STORAGE_KEY, parseStoredBillState } from './persistence';
 import { shouldReplaceStarterPerson } from './people';
@@ -171,11 +170,14 @@ export default function App() {
   const theme = THEMES.find((candidate) => candidate.id === themeId) ?? THEMES[0];
   const followingTheme = THEMES.find((candidate) => candidate.id === nextTheme(themeId)) ?? THEMES[0];
   const isDarkMode = theme.colorScheme === 'dark';
-  const [showCopied, setShowCopied] = useState(false);
-  const [summaryCopyCount, setSummaryCopyCount] = useState(0);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const scanGenerationRef = useRef(0);
+  const { notice: mascotNotice, notify, dismissNotice, clearNotices } = useMascotNotifications({
+    suspendAll: showResetConfirm,
+    suspendTransient: isScanning || updateAvailable || Boolean(installOffer),
+  });
 
   const [currentView, setCurrentView] = useState<'main' | 'qr'>('main');
   const [promptPayId, setPromptPayId] = useState(() => {
@@ -185,7 +187,6 @@ export default function App() {
     return '';
   });
   const [selectedPersonForQR, setSelectedPersonForQR] = useState<string>(() => initialBillState?.people?.[0]?.id ?? '1');
-  const [copiedQRId, setCopiedQRId] = useState<string | null>(null);
   const [focusTargetItemId, setFocusTargetItemId] = useState<string | null>(null);
   const [expandedItemOptionsId, setExpandedItemOptionsId] = useState<string | null>(null);
   const [activeKeypad, setActiveKeypad] = useState<ActiveKeypadState | null>(null);
@@ -280,15 +281,6 @@ export default function App() {
   }, [i18n.language, i18n.resolvedLanguage]);
 
   const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const copyQRTimeoutRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (copyQRTimeoutRef.current) {
-        window.clearTimeout(copyQRTimeoutRef.current);
-      }
-    };
-  }, []);
 
   const addPerson = useCallback(() => {
     vibrate(10);
@@ -510,21 +502,25 @@ export default function App() {
 
     try {
       await navigator.clipboard.writeText(text);
-      setSummaryCopyCount(count => count + 1);
-      setShowCopied(true);
-      setTimeout(() => setShowCopied(false), 2000);
+      notify('mascotShareCopied', 'success', 'summary');
     } catch (error) {
       console.error('Failed to copy summary', error);
+      notify('mascotSummaryCopyFailed', 'error', 'summary');
     }
   };
 
   const resetAll = () => {
     vibrate([30, 50, 30]);
+    scanGenerationRef.current += 1;
+    setIsScanning(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
     setPeople([{ id: '1', name: t('personDefaultName'), items: [], individualDiscount: 0, plates: { ...INITIAL_PLATES } }]);
     setSharedItems([]);
     setSettings({ ...INITIAL_SETTINGS });
     setSelectedPersonForQR('1');
     setShowResetConfirm(false);
+    clearNotices();
+    notify('mascotBillCleared', 'success', 'bill');
   };
 
   const triggerSpectacularEffect = async () => {
@@ -567,10 +563,13 @@ export default function App() {
     }());
   };
 
-  const downloadQRImage = useCallback((name?: string) => {
+  const downloadQRImage = useCallback((name?: string, isCopyFallback = false) => {
     vibrate(10);
     const canvas = qrCanvasRef.current;
-    if (!canvas) return;
+    if (!canvas) {
+      notify('mascotQrUnavailable', 'error', 'qr');
+      return;
+    }
     try {
       const url = canvas.toDataURL('image/png');
       const safeName = (name || 'Member').replace(/[/\\?%*:|"<>]/g, '-').trim();
@@ -578,25 +577,26 @@ export default function App() {
       link.download = `PromptPay-QR-${safeName}.png`;
       link.href = url;
       link.click();
-      void triggerSpectacularEffect();
-      if (copyQRTimeoutRef.current) window.clearTimeout(copyQRTimeoutRef.current);
-      setCopiedQRId(selectedPersonForQR);
-      copyQRTimeoutRef.current = window.setTimeout(() => setCopiedQRId(null), 2500);
+      notify(isCopyFallback ? 'mascotQrDownloadFallback' : 'mascotQrDownloadStarted', 'info', 'qr');
     } catch (e) {
       console.error('Download QR failed', e);
+      notify('mascotQrDownloadFailed', 'error', 'qr');
     }
-  }, [selectedPersonForQR]);
+  }, [notify]);
 
   const copyQRToClipboard = useCallback(async (memberId?: string, name?: string) => {
     vibrate([10, 30, 10]);
     const canvas = qrCanvasRef.current;
-    if (!canvas) return;
+    if (!canvas) {
+      notify('mascotQrUnavailable', 'error', 'qr');
+      return;
+    }
 
     if (
       typeof ClipboardItem === 'undefined'
       || typeof navigator.clipboard?.write !== 'function'
     ) {
-      downloadQRImage(name);
+      downloadQRImage(name, true);
       return;
     }
 
@@ -605,38 +605,39 @@ export default function App() {
         canvas.toBlob(resolve, 'image/png');
       });
       if (!blob) {
-        downloadQRImage(name);
+        downloadQRImage(name, true);
         return;
       }
 
       const item = new ClipboardItem({ 'image/png': blob });
       await navigator.clipboard.write([item]);
+      notify('qrCheerleaderSuccess', 'success', 'qr');
       if (memberId) {
-        if (copyQRTimeoutRef.current) window.clearTimeout(copyQRTimeoutRef.current);
-        setCopiedQRId(memberId);
         void triggerSpectacularEffect();
-        copyQRTimeoutRef.current = window.setTimeout(() => setCopiedQRId(null), 2500);
       }
     } catch (err) {
       console.error('Clipboard copy failed, fallback to download:', err);
-      downloadQRImage(name);
+      downloadQRImage(name, true);
     }
-  }, [downloadQRImage]);
+  }, [downloadQRImage, notify]);
 
   const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!file.type.startsWith('image/') || file.size > MAX_RECEIPT_IMAGE_BYTES) {
+      notify(!file.type.startsWith('image/') ? 'mascotScanImageRequired' : 'mascotScanImageTooLarge', 'error', 'scan');
+      vibrate([30, 50, 30]);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    clearNotices('scan');
+    const scanGeneration = ++scanGenerationRef.current;
     setIsScanning(true);
     try {
-      if (!file.type.startsWith('image/')) {
-        throw new Error('The selected file is not an image.');
-      }
-      if (file.size > MAX_RECEIPT_IMAGE_BYTES) {
-        throw new Error('Receipt images must be 10 MB or smaller.');
-      }
-
       const base64Data = await readFileAsDataUrl(file);
+      if (scanGeneration !== scanGenerationRef.current) return;
       const dataDelimiterIndex = base64Data.indexOf(',');
       if (dataDelimiterIndex < 0) {
         throw new Error('Receipt image data is invalid.');
@@ -647,10 +648,17 @@ export default function App() {
       }
 
       const { scanReceipt } = await import('./services/receiptScanner');
+      if (scanGeneration !== scanGenerationRef.current) return;
       const items = await scanReceipt(base64Image, file.type);
+      if (scanGeneration !== scanGenerationRef.current) return;
       const scannedUnitCount = items.reduce((total, item) => total + item.quantity, 0);
       if (scannedUnitCount > MAX_SCANNED_UNITS) {
-        throw new Error(`Receipt contains more than ${MAX_SCANNED_UNITS} units.`);
+        notify('mascotScanTooManyItems', 'error', 'scan', { max: MAX_SCANNED_UNITS });
+        return;
+      }
+      if (items.length === 0) {
+        notify('mascotScanNoItems', 'error', 'scan');
+        return;
       }
 
       if (items.length > 0) {
@@ -700,16 +708,19 @@ export default function App() {
           ];
         });
         vibrate([10, 30, 20]);
+        notify('detectiveFound', 'success', 'scan', { count: scannedUnitCount });
         void triggerSpectacularEffect();
       }
     } catch (err) {
+      if (scanGeneration !== scanGenerationRef.current) return;
       console.error(err);
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      alert(`${t('scanFailed')}\n\nDetails: ${errorMessage}`);
+      notify('scanFailed', 'error', 'scan');
       vibrate([30, 50, 30]);
     } finally {
-      setIsScanning(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (scanGeneration === scanGenerationRef.current) {
+        setIsScanning(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -770,150 +781,13 @@ export default function App() {
               onClick={() => { vibrate(10); setShowResetConfirm(true); }}
               className="w-11 h-11 flex items-center justify-center shrink-0 text-slate-500 hover:text-rose-600 shadow-sm transition-colors bg-white/80 rounded-xl border border-slate-200"
               title={t('clearAll')}
+              aria-label={t('clearAll')}
             >
               <Trash2 size={20} />
             </motion.button>
           </div>
         </div>
       </header>
-
-      {/* PWA update/install banner */}
-      {updateAvailable ? (
-        <div className="max-w-xl mx-auto px-6 pt-4">
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl flex items-center justify-between shadow-lg shadow-indigo-200"
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center font-bold text-lg shrink-0">
-                🔄
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-wider">{t('updateAvailable')}</p>
-                <p className="text-sm text-indigo-100 font-medium">
-                  {updateError ? t('updateFailed') : t('updateAvailableDesc')}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  vibrate(10);
-                  void applyUpdate();
-                }}
-                disabled={updateInProgress}
-                className="px-3.5 py-2 bg-white text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-50 active:scale-95 transition-all shadow-sm cursor-pointer disabled:cursor-wait disabled:opacity-70"
-              >
-                {updateInProgress
-                  ? t('updatingApp')
-                  : updateError
-                    ? t('retryUpdate')
-                    : t('refreshApp')}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  vibrate(10);
-                  dismissUpdate();
-                }}
-                disabled={updateInProgress}
-                className="px-2.5 py-2 rounded-lg text-xs font-bold text-white/90 hover:text-white hover:bg-white/15 active:scale-95 transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {t('later')}
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      ) : installOffer && (
-        <div className="max-w-xl mx-auto px-6 pt-4">
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl flex items-center justify-between shadow-lg shadow-indigo-200"
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center font-bold text-lg shrink-0">
-                📲
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-wider">{t('installApp')}</p>
-                <p className="text-sm text-indigo-100 font-medium">
-                  {installOffer === 'ios' ? t('installIosDesc') : t('installAppDesc')}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              {installOffer === 'native' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    vibrate(10);
-                    void requestInstall();
-                  }}
-                  className="px-3.5 py-2 bg-white text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-50 active:scale-95 transition-all shadow-sm cursor-pointer"
-                >
-                  {t('installApp')}
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  vibrate(10);
-                  dismissInstall();
-                }}
-                className="w-9 h-9 flex items-center justify-center rounded-lg text-white/80 hover:text-white hover:bg-white/15 active:scale-95 transition-all cursor-pointer"
-                aria-label={t('dismissInstallApp')}
-                title={t('dismissInstallApp')}
-              >
-                <X size={18} />
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
-
-      {/* Reset Confirmation Modal */}
-      <AnimatePresence>
-        {showResetConfirm && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm"
-          >
-            <motion.div 
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="bg-white rounded-[2.5rem] p-8 w-full max-w-xs space-y-6 text-center shadow-2xl"
-            >
-              <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto">
-                <Trash2 size={32} />
-              </div>
-              <div className="space-y-2">
-                <h3 className="font-extrabold text-xl text-slate-900">{t('clearConfirmTitle')}</h3>
-                <p className="text-base font-medium text-slate-500">{t('clearConfirmDesc')}</p>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <button 
-                  onClick={() => { vibrate(10); setShowResetConfirm(false); }}
-                  className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-base transition-all"
-                >
-                  {t('cancel')}
-                </button>
-                <button 
-                  onClick={resetAll}
-                  className="py-4 bg-rose-500 text-white rounded-2xl font-bold text-base shadow-lg shadow-rose-200 transition-all hover:bg-rose-600"
-                >
-                  {t('clear')}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <main className="max-w-xl mx-auto p-4 space-y-8">
         {currentView === 'main' ? (
@@ -1193,6 +1067,8 @@ export default function App() {
                     {people.length > 1 && (
                       <button 
                         onClick={() => removePerson(person.id)}
+                        aria-label={t('removeMember', { name: person.name })}
+                        title={t('removeMember', { name: person.name })}
                         className="p-3 text-slate-400 hover:text-rose-600 hover:bg-rose-100 rounded-2xl transition-all cursor-pointer"
                       >
                         <Trash2 size={20} />
@@ -1444,11 +1320,7 @@ export default function App() {
                   onClick={copySummary}
                   className="p-5 vibrant-gradient text-white rounded-[1.5rem] hover:scale-105 active:scale-95 transition-all shadow-[0_10px_40px_rgba(99,102,241,0.4)] flex items-center gap-2"
                 >
-                  {showCopied ? (
-                    <Check size={24} strokeWidth={3} />
-                  ) : (
-                    <Copy size={24} strokeWidth={2.5} />
-                  )}
+                  <Copy size={24} strokeWidth={2.5} />
                 </button>
               </div>
             </div>
@@ -1483,6 +1355,8 @@ export default function App() {
                   type="text"
                   inputMode="numeric"
                   value={promptPayId}
+                  aria-label={t('promptPayIdLabel')}
+                  aria-invalid={Boolean(promptPayId.trim() && !qrPayload && selectedMemberTotal > 0)}
                   onChange={(e) => {
                     const val = e.target.value.replace(/[^0-9\-]/g, '');
                     setPromptPayId(val);
@@ -1494,20 +1368,10 @@ export default function App() {
             </section>
 
             <section className="glass-card rounded-[2.5rem] p-8 text-center space-y-6 relative overflow-hidden flex flex-col items-center">
-              {selectedMemberTotal <= 0 ? (
-                <div className="w-full rounded-3xl border border-slate-200 bg-slate-100/80 p-6 py-12 text-center font-semibold text-slate-600 select-none space-y-3 dark:border-slate-600/80 dark:bg-slate-900/75 dark:text-slate-200">
-                  <ReceiptText size={48} className="mx-auto text-slate-500 dark:text-slate-300" />
-                  <p className="text-sm leading-relaxed">{t('invalidAmount')}</p>
-                </div>
-              ) : !promptPayId.trim() ? (
-                <div className="w-full rounded-3xl border border-amber-200 bg-amber-50/90 p-6 py-12 text-center font-semibold text-amber-800 select-none space-y-3 dark:border-amber-700/80 dark:bg-amber-950/60 dark:text-amber-100">
-                  <Phone size={48} className="mx-auto text-amber-600 dark:text-amber-300" />
-                  <p className="text-sm leading-relaxed">{t('enterPromptPayFirst')}</p>
-                </div>
-              ) : !qrPayload ? (
-                <div className="w-full rounded-3xl border border-rose-200 bg-rose-50/90 p-6 py-12 text-center font-semibold text-rose-800 select-none space-y-3 dark:border-rose-700/80 dark:bg-rose-950/60 dark:text-rose-100">
-                  <Phone size={48} className="mx-auto text-rose-600 dark:text-rose-300" />
-                  <p className="text-sm leading-relaxed">{t('invalidPromptPayId')}</p>
+              {!qrPayload ? (
+                <div className="w-full rounded-3xl border border-slate-200 bg-slate-100/80 p-6 py-12 text-center text-slate-600 dark:border-slate-600/80 dark:bg-slate-900/75 dark:text-slate-200">
+                  <QrCode size={48} className="mx-auto" aria-hidden="true" />
+                  <span className="sr-only">{t('mascotQrUnavailable')}</span>
                 </div>
               ) : (
                 <>
@@ -1541,17 +1405,8 @@ export default function App() {
                       onClick={() => copyQRToClipboard(selectedMember?.id, selectedMember?.name)}
                       className="flex items-center justify-center gap-2 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[1.25rem] font-bold text-sm shadow-md active:scale-95 transition-all outline-none cursor-pointer"
                     >
-                      {copiedQRId === selectedMember?.id ? (
-                        <>
-                          <Check size={18} strokeWidth={3} />
-                          <span>{t('copied')}</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy size={18} strokeWidth={2.5} />
-                          <span>{t('copyQRButton')}</span>
-                        </>
-                      )}
+                      <Copy size={18} strokeWidth={2.5} />
+                      <span>{t('copyQRButton')}</span>
                     </button>
 
                     <button
@@ -1639,9 +1494,15 @@ export default function App() {
           variant={mascotVariant} 
           themeName={theme.name}
           isScanning={isScanning} 
-          isQrView={currentView === 'qr'}
-          isQrCopied={copiedQRId !== null}
-                summaryCopyCount={summaryCopyCount}
+          qrReady={Boolean(qrPayload)}
+          qrIssueKey={currentView !== 'qr' || qrPayload ? null : selectedMemberTotal <= 0 ? 'invalidAmount' : !promptPayId.trim() ? 'enterPromptPayFirst' : 'invalidPromptPayId'}
+          notice={mascotNotice}
+          onDismissNotice={dismissNotice}
+          clearConfirmation={showResetConfirm ? {
+            onCancel: () => { vibrate(10); setShowResetConfirm(false); },
+            onConfirm: resetAll,
+          } : undefined}
+          pwa={{ installOffer, requestInstall, dismissInstall, updateAvailable, updateInProgress, updateError, applyUpdate, dismissUpdate }}
           vibrate={vibrate} 
         />
         <div className="glass-card rounded-[2rem] p-4 flex items-center justify-between gap-4">
@@ -1674,31 +1535,10 @@ export default function App() {
               onClick={copySummary}
               className="h-14 w-28 vibrant-gradient text-white rounded-[1.25rem] flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all overflow-hidden relative cursor-pointer"
             >
-              <AnimatePresence mode="wait">
-                {showCopied ? (
-                  <motion.div 
-                    key="copied"
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: -20, opacity: 0 }}
-                    className="flex items-center gap-1.5"
-                  >
-                    <Check size={16} strokeWidth={3} />
-                    <span className="text-xs font-bold uppercase tracking-wider">{t('copied')}</span>
-                  </motion.div>
-                ) : (
-                  <motion.div 
-                    key="share"
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: -20, opacity: 0 }}
-                    className="flex items-center gap-1.5"
-                  >
-                    <Share2 size={16} strokeWidth={2.5} />
-                    <span className="text-xs font-bold uppercase tracking-wider">{t('share')}</span>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              <span className="flex items-center gap-1.5">
+                <Share2 size={16} strokeWidth={2.5} />
+                <span className="text-xs font-bold uppercase tracking-wider">{t('share')}</span>
+              </span>
             </button>
           </div>
         </div>

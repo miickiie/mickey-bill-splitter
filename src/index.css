@@ -2,7 +2,19 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: "Sora", "Manrope", "Noto Sans Thai Looped", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Sora", "Manrope", "Anuphan", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer utilities {
+  .text-xs:lang(th) {
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .tracking-wider:lang(th),
+  .tracking-widest:lang(th) {
+    letter-spacing: normal;
+  }
 }
 
 @layer base {

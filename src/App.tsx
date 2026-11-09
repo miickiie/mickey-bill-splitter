@@ -760,9 +760,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen main-safe-padding-bottom bg-slate-50/50 w-full overflow-x-hidden">
-      <header className="sticky top-0 z-30 bg-white/50 backdrop-blur-3xl saturate-[1.3] border-b border-white/40 px-6 header-safe-padding shadow-[0_4px_30px_rgba(0,0,0,0.03)]">
+      <header className="sticky top-0 z-30 bg-white/50 backdrop-blur-3xl saturate-[1.3] border-b border-white/40 px-6 max-[360px]:px-2 header-safe-padding shadow-[0_4px_30px_rgba(0,0,0,0.03)]">
         <div className="max-w-xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 max-[360px]:gap-2">
             <button
               onClick={() => { vibrate(10); setThemeId((current) => nextTheme(current)); }}
               className="w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center bg-gradient-to-br from-indigo-500 via-indigo-600 to-indigo-800 dark:from-indigo-700 dark:via-indigo-800 dark:to-indigo-950 shadow-xl shadow-indigo-200 hover:scale-105 active:scale-95 transition-all outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-4 focus-visible:ring-offset-slate-50 dark:focus-visible:ring-offset-slate-900 overflow-hidden"
@@ -787,7 +787,7 @@ export default function App() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 max-[360px]:gap-1">
             <button
               onClick={() => { vibrate(10); i18n.changeLanguage(i18n.language === 'th' ? 'en' : 'th'); }}
               className="w-11 h-11 flex items-center justify-center shrink-0 rounded-xl border border-slate-200 bg-white/80 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors text-xs font-bold uppercase tracking-widest shadow-sm"

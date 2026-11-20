@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useLayoutEffect, useRef, useCallback, type ChangeEvent } from 'react';
+import { flushSync } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -12,6 +13,9 @@ import {
   Copy,
   Check,
   Camera,
+  ChevronDown,
+  FilePlus2,
+  History,
   QrCode,
   Phone,
   ArrowLeft,
@@ -26,7 +30,7 @@ import { QRCodeCanvas } from 'qrcode.react';
 import { usePwaLifecycle } from './hooks/usePwaLifecycle';
 import { useMascotNotifications } from './hooks/useMascotNotifications';
 import { calculateBill, sanitizeNonNegativeNumber } from './calculation';
-import { BILL_STATE_STORAGE_KEY, parseStoredBillState } from './persistence';
+import { archiveBill, readBillDraft, readBillHistory, saveBillDraft, type BillDraft, type SavedBill } from './persistence';
 import { shouldReplaceStarterPerson } from './people';
 import { CalculatorKeypad } from './components/CalculatorKeypad';
 import { ItemRow } from './components/ItemRow';
@@ -39,6 +43,7 @@ import { THEMES, THEME_STORAGE_KEY, nextTheme, resolveTheme, type ThemeId } from
 let cachedConfetti: typeof import('canvas-confetti') | null = null;
 
 const COPY_FEEDBACK_DURATION_MS = 2000;
+const BILL_SAVE_DELAY_MS = 250;
 
 const INITIAL_PLATES: Plates = {
   white: 0,
@@ -59,6 +64,17 @@ const INITIAL_SETTINGS: BillSettings = {
   isSushiroMode: false,
   splitScanItemsByQuantity: true,
 };
+
+const createStarterPerson = (name: string): Person => ({
+  id: '1',
+  name,
+  items: [],
+  individualDiscount: 0,
+  plates: { ...INITIAL_PLATES },
+});
+
+const createBillId = (): string => crypto.randomUUID?.()
+  ?? Array.from(crypto.getRandomValues(new Uint32Array(4)), value => value.toString(16).padStart(8, '0')).join('');
 
 const MAX_RECEIPT_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_SCANNED_UNITS = 200;
@@ -102,7 +118,7 @@ const loadInitialBillState = () => {
   if (typeof window === 'undefined') return null;
 
   try {
-    return parseStoredBillState(localStorage.getItem(BILL_STATE_STORAGE_KEY));
+    return readBillDraft(localStorage);
   } catch (error) {
     console.error('Failed to read saved state', error);
     return null;
@@ -147,16 +163,9 @@ export default function App() {
   } = usePwaLifecycle();
   
   const [initialBillState] = useState(loadInitialBillState);
+  const [billId, setBillId] = useState(() => initialBillState?.billId ?? createBillId());
   const [people, setPeople] = useState<Person[]>(() => (
-    initialBillState?.people ?? [
-      {
-        id: '1',
-        name: t('personDefaultName'),
-        items: [],
-        individualDiscount: 0,
-        plates: { ...INITIAL_PLATES },
-      },
-    ]
+    initialBillState?.people ?? [createStarterPerson(t('personDefaultName'))]
   ));
   const [sharedItems, setSharedItems] = useState<Item[]>(
     () => initialBillState?.sharedItems ?? [],
@@ -164,8 +173,20 @@ export default function App() {
   const [settings, setSettings] = useState<BillSettings>(
     () => initialBillState?.settings ?? { ...INITIAL_SETTINGS },
   );
-  const latestBillStateRef = useRef({ people, sharedItems, settings });
-  latestBillStateRef.current = { people, sharedItems, settings };
+  const latestBillStateRef = useRef<BillDraft>({ billId, people, sharedItems, settings });
+  const [saveFailed, setSaveFailed] = useState(false);
+  const [savedBills, setSavedBills] = useState<SavedBill[] | null>(null);
+  const [billHistoryError, setBillHistoryError] = useState<'billHistoryUnavailable' | 'billSwitchFailed' | null>(null);
+  const billHistoryButtonRef = useRef<HTMLButtonElement>(null);
+  const scrollRef = useRef<HTMLElement>(null);
+  const historyDateFormatter = useMemo(
+    () => new Intl.DateTimeFormat(i18n.resolvedLanguage, { dateStyle: 'medium', timeStyle: 'short' }),
+    [i18n.resolvedLanguage],
+  );
+
+  useLayoutEffect(() => {
+    latestBillStateRef.current = { billId, people, sharedItems, settings };
+  }, [billId, people, sharedItems, settings]);
   const [themeId, setThemeId] = useState<ThemeId>(() => resolveTheme(
     localStorage.getItem(THEME_STORAGE_KEY),
     window.matchMedia('(prefers-color-scheme: dark)').matches,
@@ -187,6 +208,7 @@ export default function App() {
   });
 
   const [currentView, setCurrentView] = useState<'main' | 'qr'>('main');
+  useLayoutEffect(() => { scrollRef.current?.scrollTo(0, 0); }, [currentView]);
   const [promptPayId, setPromptPayId] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('bill-splitter-promptpay-id') || '';
@@ -224,46 +246,33 @@ export default function App() {
     }
   }, [people, selectedPersonForQR]);
 
-  useEffect(() => {
-    const saveLatestState = () => {
-      try {
-        localStorage.setItem(
-          BILL_STATE_STORAGE_KEY,
-          JSON.stringify(latestBillStateRef.current),
-        );
-      } catch (error) {
-        console.error('Failed to save state', error);
-      }
-    };
-    const timeoutId = window.setTimeout(() => {
-      saveLatestState();
-    }, 250);
+  const saveLatestBill = useCallback(() => {
+    try {
+      saveBillDraft(localStorage, latestBillStateRef.current);
+      setSaveFailed(false);
+    } catch (error) {
+      console.error('Failed to save state', error);
+      setSaveFailed(true);
+    }
+  }, []);
 
+  useEffect(() => {
+    const timeoutId = window.setTimeout(saveLatestBill, BILL_SAVE_DELAY_MS);
     return () => window.clearTimeout(timeoutId);
-  }, [people, sharedItems, settings]);
+  }, [billId, people, sharedItems, settings, saveLatestBill]);
 
   useEffect(() => {
-    const flushLatestState = () => {
-      try {
-        localStorage.setItem(
-          BILL_STATE_STORAGE_KEY,
-          JSON.stringify(latestBillStateRef.current),
-        );
-      } catch (error) {
-        console.error('Failed to flush state', error);
-      }
-    };
     const flushWhenHidden = () => {
-      if (document.visibilityState === 'hidden') flushLatestState();
+      if (document.visibilityState === 'hidden') saveLatestBill();
     };
 
-    window.addEventListener('pagehide', flushLatestState);
+    window.addEventListener('pagehide', saveLatestBill);
     document.addEventListener('visibilitychange', flushWhenHidden);
     return () => {
-      window.removeEventListener('pagehide', flushLatestState);
+      window.removeEventListener('pagehide', saveLatestBill);
       document.removeEventListener('visibilitychange', flushWhenHidden);
     };
-  }, []);
+  }, [saveLatestBill]);
 
   useLayoutEffect(() => {
     const root = document.documentElement;
@@ -291,18 +300,23 @@ export default function App() {
 
   const addPerson = useCallback(() => {
     vibrate(10);
-    const newFoodItemId = crypto.randomUUID();
-    setPeople((prev) => [
+    const id = crypto.randomUUID();
+    flushSync(() => setPeople((prev) => [
       ...prev,
       {
-        id: crypto.randomUUID(),
+        id,
         name: t('newMemberDefaultName', { count: prev.length + 1 }),
-        items: [{ id: newFoodItemId, name: '', price: 0 }],
+        items: [],
         individualDiscount: 0,
         plates: { ...INITIAL_PLATES },
       },
-    ]);
-    setFocusTargetItemId(newFoodItemId);
+    ]));
+    const nameInput = document.getElementById(`member-name-${id}`);
+    if (nameInput instanceof HTMLInputElement) {
+      nameInput.focus({ preventScroll: true });
+      nameInput.select();
+      nameInput.scrollIntoView({ block: 'center' });
+    }
   }, [t]);
 
   const removePerson = useCallback((id: string) => {
@@ -543,18 +557,74 @@ export default function App() {
     }
   };
 
-  const resetAll = () => {
-    vibrate([30, 50, 30]);
+  const toggleBillHistory = () => {
+    setBillHistoryError(null);
+    if (savedBills !== null) {
+      setSavedBills(null);
+      return;
+    }
+
+    try {
+      setSavedBills(readBillHistory(localStorage).filter((bill) => bill.billId !== billId));
+    } catch (error) {
+      console.error('Failed to read bill history', error);
+      setBillHistoryError('billHistoryUnavailable');
+    }
+  };
+
+  const switchBill = (nextBill: BillDraft): boolean => {
+    const currentBill = latestBillStateRef.current;
+    const defaultNames = [
+      i18n.getFixedT('en')('personDefaultName'),
+      i18n.getFixedT('th')('personDefaultName'),
+    ];
+    const hasBillContent = currentBill.sharedItems.length > 0
+      || !shouldReplaceStarterPerson(currentBill.people, defaultNames)
+      || (Object.keys(INITIAL_SETTINGS) as (keyof BillSettings)[]).some(
+        key => currentBill.settings[key] !== INITIAL_SETTINGS[key],
+      );
+
+    try {
+      if (hasBillContent) archiveBill(localStorage, currentBill);
+      saveBillDraft(localStorage, nextBill);
+    } catch (error) {
+      console.error('Failed to switch bills', error);
+      setBillHistoryError('billSwitchFailed');
+      return false;
+    }
+
     scanGenerationRef.current += 1;
     setIsScanning(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
-    setPeople([{ id: '1', name: t('personDefaultName'), items: [], individualDiscount: 0, plates: { ...INITIAL_PLATES } }]);
-    setSharedItems([]);
-    setSettings({ ...INITIAL_SETTINGS });
-    setSelectedPersonForQR('1');
-    setShowResetConfirm(false);
+    latestBillStateRef.current = nextBill;
+    setBillId(nextBill.billId);
+    setPeople(nextBill.people);
+    setSharedItems(nextBill.sharedItems);
+    setSettings(nextBill.settings);
+    setSelectedPersonForQR(nextBill.people[0].id);
+    setFocusTargetItemId(null);
+    setExpandedItemOptionsId(null);
+    setActiveKeypad(null);
+    setSavedBills(null);
+    setBillHistoryError(null);
+    window.clearTimeout(summaryCopyTimeoutRef.current);
+    setShowCopied(false);
+    scrollRef.current?.scrollTo(0, 0);
     clearNotices();
-    notify('mascotBillCleared', 'success', 'bill');
+    return true;
+  };
+
+  const resetAll = () => {
+    setShowResetConfirm(false);
+    if (switchBill({
+      billId: createBillId(),
+      people: [createStarterPerson(t('personDefaultName'))],
+      sharedItems: [],
+      settings: { ...INITIAL_SETTINGS },
+    })) {
+      vibrate([30, 50, 30]);
+      notify('mascotBillCleared', 'success', 'bill');
+    }
   };
 
   const triggerSpectacularEffect = async () => {
@@ -759,8 +829,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen main-safe-padding-bottom bg-slate-50/50 w-full overflow-x-hidden">
-      <header className="sticky top-0 z-30 bg-white/50 backdrop-blur-3xl saturate-[1.3] border-b border-white/40 px-6 max-[360px]:px-2 header-safe-padding shadow-[0_4px_30px_rgba(0,0,0,0.03)]">
+    <div className="flex h-dvh w-full flex-col overflow-hidden bg-slate-50/50">
+      <header className="relative z-30 shrink-0 bg-white/50 backdrop-blur-3xl saturate-[1.3] border-b border-white/40 px-6 max-[360px]:px-2 header-safe-padding shadow-[0_4px_30px_rgba(0,0,0,0.03)]">
         <div className="max-w-xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3 max-[360px]:gap-2">
             <button
@@ -809,29 +879,117 @@ export default function App() {
             >
               🍣
             </motion.button>
-            <motion.button 
-              whileHover={{ scale: 1.1, rotate: 5 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => { vibrate(10); setShowResetConfirm(true); }}
-              className="w-11 h-11 flex items-center justify-center shrink-0 text-slate-500 hover:text-rose-600 shadow-sm transition-colors bg-white/80 rounded-xl border border-slate-200"
-              title={t('clearAll')}
-              aria-label={t('clearAll')}
-            >
-              <Trash2 size={20} />
-            </motion.button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-xl mx-auto p-4 space-y-8">
+      <main ref={scrollRef} tabIndex={0} className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain">
+        <div className="max-w-xl mx-auto p-4 space-y-6">
         {currentView === 'main' ? (
           <>
-            {/* Global Settings Section */}
-        <section className="glass-card rounded-[2.5rem] p-7 space-y-6">
-          <div className="flex items-center gap-2 text-indigo-600 px-1">
-            <Settings2 size={18} />
-            <h2 className="text-xs font-bold uppercase tracking-wider">{t('globalSettings')}</h2>
+        <section aria-label={t('billActions')} className="bill-panel rounded-3xl p-3 sm:p-5 flex flex-col gap-3">
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={addPerson}
+              className="min-h-14 rounded-2xl vibrant-gradient px-2 py-2.5 text-white text-sm font-bold flex flex-col sm:flex-row items-center justify-center gap-1.5 text-center leading-tight active:scale-[0.98]"
+            >
+              <UserPlus size={18} aria-hidden="true" />
+              {t('addMember')}
+            </button>
+            <button
+              type="button"
+              onClick={addSharedItem}
+              className="min-h-14 rounded-2xl px-2 py-2.5 border border-indigo-200 bg-indigo-50/50 text-indigo-600 text-sm font-bold flex flex-col sm:flex-row items-center justify-center gap-1.5 text-center leading-tight hover:bg-indigo-100 active:scale-[0.98]"
+            >
+              <UtensilsCrossed size={18} aria-hidden="true" />
+              {t('addSharedItem')}
+            </button>
+            <button
+              type="button"
+              onClick={() => { vibrate(10); fileInputRef.current?.click(); }}
+              disabled={isScanning}
+              className="min-h-14 rounded-2xl px-2 py-2.5 border border-indigo-200 bg-indigo-50/50 text-indigo-600 text-sm font-bold flex flex-col sm:flex-row items-center justify-center gap-1.5 text-center leading-tight hover:bg-indigo-100 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isScanning ? (
+                <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
+                  <Receipt size={18} aria-hidden="true" />
+                </motion.span>
+              ) : <Camera size={18} aria-hidden="true" />}
+              {isScanning ? t('scanning') : t('scanReceipt')}
+            </button>
+            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
           </div>
+
+          <div className="flex items-center justify-between gap-2 border-t border-slate-200/60 pt-1">
+            <button
+              type="button"
+              onClick={() => { vibrate(10); setShowResetConfirm(true); }}
+              className="min-h-11 flex items-center gap-2 px-2 text-sm font-bold text-indigo-600 hover:bg-indigo-50 rounded-xl"
+            >
+              <FilePlus2 size={17} aria-hidden="true" />
+              {t('newBill')}
+            </button>
+            <button
+              ref={billHistoryButtonRef}
+              type="button"
+              onClick={toggleBillHistory}
+              aria-expanded={savedBills !== null}
+              aria-controls="bill-history"
+              className="min-h-11 flex items-center gap-2 px-2 text-sm font-bold text-indigo-600 hover:bg-indigo-50 rounded-xl"
+            >
+              <History size={17} aria-hidden="true" />
+              {t('billHistory')}
+            </button>
+          </div>
+
+          {saveFailed && <p role="alert" className="px-2 text-sm font-semibold text-rose-600">{t('billSaveFailed')}</p>}
+          {billHistoryError && <p role="alert" className="px-2 text-sm font-semibold text-rose-600">{t(billHistoryError)}</p>}
+
+          <div id="bill-history" hidden={savedBills === null} className="space-y-2 border-t border-slate-200/60 pt-3">
+            {savedBills?.length === 0 && (
+              <p className="px-2 pb-2 text-sm text-slate-600">{t('billHistoryEmpty')}</p>
+            )}
+            {savedBills && savedBills.length > 0 && (
+              <ul className="space-y-2">
+                {savedBills.map(({ billId, state, savedAt }) => {
+                  const items = [...state.sharedItems, ...state.people.flatMap(person => person.items)];
+                  const name = items.find(item => item.name.trim())?.name
+                    ?? (state.people.map(person => person.name.trim()).filter(Boolean).join(', ') || t('untitledBill'));
+                  const { grandTotal } = calculateBill(state.people, state.sharedItems, state.settings);
+                  return (
+                    <li key={billId}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (switchBill({ ...state, billId })) {
+                            billHistoryButtonRef.current?.focus({ preventScroll: true });
+                          }
+                        }}
+                        className="w-full flex justify-between items-center gap-3 rounded-2xl border border-slate-200 bg-white/80 px-3 py-2.5 text-left hover:bg-indigo-50"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-bold text-slate-900">{name}</span>
+                          <span className="block text-xs text-slate-600">{historyDateFormatter.format(savedAt)}</span>
+                        </span>
+                        <span className="shrink-0 text-sm font-bold text-indigo-600 tabular-nums">
+                          ฿{grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </section>
+
+        <details className="group/settings bill-panel rounded-3xl">
+          <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-5 py-3 text-sm font-bold text-indigo-600 [&::-webkit-details-marker]:hidden">
+            <span className="flex items-center gap-2"><Settings2 size={18} aria-hidden="true" />{t('globalSettings')}</span>
+            <ChevronDown size={18} className="group-open/settings:rotate-180" aria-hidden="true" />
+          </summary>
+          <div className="space-y-6 px-5 pb-5 pt-2 sm:px-7 sm:pb-7">
           
           <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-4">
             <div className="flex-1 min-w-0 space-y-3">
@@ -1010,10 +1168,30 @@ export default function App() {
               </button>
             </div>
           </div>
-        </section>
+
+          <div className="flex items-center justify-between gap-3 border-t border-slate-200/60 pt-4">
+            <label className="text-sm font-bold text-slate-700 cursor-pointer" htmlFor="splitQuantitiesToggle">
+              {t('splitQuantitiesOption')}
+            </label>
+            <button
+              id="splitQuantitiesToggle"
+              type="button"
+              role="switch"
+              aria-checked={settings.splitScanItemsByQuantity !== false}
+              onClick={() => { vibrate(10); setSettings(s => ({ ...s, splitScanItemsByQuantity: s.splitScanItemsByQuantity === false })); }}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors ${settings.splitScanItemsByQuantity !== false ? 'bg-indigo-600' : 'bg-slate-200'}`}
+            >
+              <span
+                aria-hidden="true"
+                className={`pointer-events-none h-5 w-5 rounded-full bg-white shadow transition-transform ${settings.splitScanItemsByQuantity !== false ? 'translate-x-5' : 'translate-x-0'}`}
+              />
+            </button>
+          </div>
+          </div>
+        </details>
 
         {/* Shared Menu Section */}
-        <section className="glass-card rounded-[2.5rem] p-7 space-y-6">
+        {sharedItems.length > 0 && <section className="bill-panel rounded-[2.5rem] p-7 space-y-6">
           <div className="flex items-center justify-between px-1 gap-2 flex-wrap">
             <div className="flex items-center gap-2 text-indigo-600">
               <UtensilsCrossed size={18} />
@@ -1029,7 +1207,7 @@ export default function App() {
           </div>
 
           <div className="space-y-3">
-            <AnimatePresence initial={false}>
+            <AnimatePresence key={billId} initial={false}>
               {sharedItems.map((item) => (
                 <ItemRow
                   key={item.id}
@@ -1056,13 +1234,13 @@ export default function App() {
 
             <button 
               onClick={addSharedItem}
-              className="w-full py-3 border-2 border-dashed border-indigo-200 rounded-[1.25rem] text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50/50 transition-all flex items-center justify-center gap-2 group/add cursor-pointer"
+              className="w-full py-3 border-2 border-dashed border-indigo-200 rounded-[1.25rem] text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
-              <Plus size={16} className="group-hover/add:scale-125 transition-transform" />
+              <Plus size={16} aria-hidden="true" />
               <span className="text-xs font-bold uppercase tracking-widest">{t('addSharedItem')}</span>
             </button>
           </div>
-        </section>
+        </section>}
 
         {/* Participants Content */}
         <div className="space-y-6">
@@ -1073,7 +1251,7 @@ export default function App() {
             </h2>
           </div>
 
-          <AnimatePresence initial={false}>
+          <AnimatePresence key={billId} initial={false}>
             {people.map((person, index) => (
               <motion.div 
                 key={person.id}
@@ -1086,15 +1264,16 @@ export default function App() {
               >
                 <div className="p-7 space-y-7">
                   <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3 flex-1">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
                       <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-500 shrink-0">
                         <span className="text-base font-extrabold">{index + 1}</span>
                       </div>
                       <input 
+                        id={`member-name-${person.id}`}
                         type="text"
                         value={person.name}
                         onChange={(e) => updatePersonName(person.id, e.target.value)}
-                        className="text-xl font-extrabold bg-transparent border-none p-0 focus:ring-0 w-full placeholder:text-slate-400 text-slate-900"
+                        className="text-xl font-extrabold bg-transparent border-none p-0 focus:ring-0 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-500 w-full min-w-0 placeholder:text-slate-400 text-slate-900"
                         placeholder={t('memberNamePlaceholder')}
                       />
                     </div>
@@ -1140,9 +1319,9 @@ export default function App() {
 
                         <button 
                           onClick={() => addItem(person.id)}
-                          className="w-full py-4 border-2 border-dashed border-slate-300 rounded-[1.25rem] text-slate-500 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-all flex items-center justify-center gap-3 group/add cursor-pointer"
+                          className="w-full py-4 border-2 border-dashed border-slate-300 rounded-[1.25rem] text-slate-500 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-colors flex items-center justify-center gap-3 cursor-pointer"
                         >
-                          <Plus size={18} className="group-hover/add:scale-125 transition-transform" />
+                          <Plus size={18} aria-hidden="true" />
                           <span className="text-xs font-bold uppercase tracking-widest">{t('addItem')}</span>
                         </button>
                       </>
@@ -1224,59 +1403,14 @@ export default function App() {
             ))}
           </AnimatePresence>
 
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <button 
-                  onClick={addPerson}
-                  className="w-full py-4 rounded-[2rem] bg-indigo-50/50 border-2 border-dashed border-indigo-200 text-indigo-600 hover:bg-indigo-100 hover:border-indigo-300 hover:text-indigo-700 transition-all flex flex-col items-center justify-center gap-2 active:scale-[0.98]"
-                >
-                  <div className="p-2 bg-white rounded-xl shadow-sm border border-indigo-50 text-indigo-500">
-                    <UserPlus size={20} strokeWidth={2.5} />
-                  </div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-center">{t('addMember')}</span>
-                </button>
-
-                <button 
-                  onClick={() => { vibrate(10); fileInputRef.current?.click(); }}
-                  disabled={isScanning}
-                  className="w-full py-4 rounded-[2rem] bg-indigo-50/50 border-2 border-dashed border-indigo-200 text-indigo-600 hover:bg-indigo-100 hover:border-indigo-300 hover:text-indigo-700 transition-all flex flex-col items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div className="p-2 bg-white rounded-xl shadow-sm border border-indigo-50 text-indigo-500">
-                    {isScanning ? (
-                      <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
-                        <Receipt size={20} strokeWidth={2.5} />
-                      </motion.div>
-                    ) : (
-                      <Camera size={20} strokeWidth={2.5} />
-                    )}
-                  </div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-center">{isScanning ? t('scanning') : t('scanReceipt')}</span>
-                </button>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  className="hidden"
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                />
-              </div>
-
-              <div className="flex items-center justify-between bg-white/40 backdrop-blur-md p-4 rounded-[1.25rem] border border-white/50">
-                <label className="text-sm sm:text-base font-bold text-slate-700 select-none cursor-pointer pr-4 leading-relaxed" htmlFor="splitQuantitiesToggle">
-                  {t('splitQuantitiesOption')}
-                </label>
-                <button
-                  id="splitQuantitiesToggle"
-                  onClick={() => { vibrate(10); setSettings(s => ({ ...s, splitScanItemsByQuantity: s.splitScanItemsByQuantity === false })); }}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${settings.splitScanItemsByQuantity !== false ? 'bg-indigo-600' : 'bg-slate-200'}`}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${settings.splitScanItemsByQuantity !== false ? 'translate-x-5' : 'translate-x-0'}`}
-                  />
-                </button>
-              </div>
-            </div>
+          <button
+            type="button"
+            onClick={addPerson}
+            className="w-full py-3 rounded-[1.25rem] bg-indigo-50/50 border-2 border-dashed border-indigo-200 text-indigo-600 hover:bg-indigo-100 hover:border-indigo-300 transition-all flex items-center justify-center gap-2 text-sm font-bold active:scale-[0.98]"
+          >
+            <UserPlus size={18} aria-hidden="true" />
+            {t('addMember')}
+          </button>
         </div>
 
         {/* Detailed Summary Card */}
@@ -1526,29 +1660,30 @@ export default function App() {
             </section>
           </div>
         )}
+        </div>
+
+        <div className="pb-8 pt-4 flex items-center justify-center gap-1 text-sm font-semibold text-slate-500">
+          <button
+            type="button"
+            onClick={triggerSpectacularEffect}
+            className="cursor-pointer outline-none hover:text-indigo-500 transition-colors active:scale-95"
+          >
+            {t('credit')}
+          </button>
+          <a
+            href="https://www.instagram.com/miiickiie/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 hover:text-indigo-500 transition-colors outline-none active:scale-95"
+          >
+            <Instagram className="w-4 h-4" aria-hidden="true" />
+            <span>Miiickiie</span>
+          </a>
+        </div>
       </main>
 
-      <div className="pb-8 pt-4 flex items-center justify-center gap-1 text-sm font-semibold text-slate-500">
-        <button
-          type="button"
-          onClick={triggerSpectacularEffect}
-          className="cursor-pointer outline-none hover:text-indigo-500 transition-colors active:scale-95"
-        >
-          {t('credit')}
-        </button>
-        <a
-          href="https://www.instagram.com/miiickiie/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 hover:text-indigo-500 transition-colors outline-none active:scale-95"
-        >
-          <Instagram className="w-4 h-4" aria-hidden="true" />
-          <span>Miiickiie</span>
-        </a>
-      </div>
-
-      {/* Modern Sticky Footer */}
-      <footer className="fixed footer-safe-bottom left-1/2 -translate-x-1/2 z-40 w-full max-w-sm px-4">
+      <footer className="relative z-40 shrink-0 footer-safe-padding px-4">
+        <div className="relative mx-auto w-full max-w-sm">
         <MascotPeeker 
           variant={mascotVariant} 
           themeName={theme.name}
@@ -1564,15 +1699,15 @@ export default function App() {
           pwa={{ installOffer, requestInstall, dismissInstall, updateAvailable, updateInProgress, updateError, applyUpdate, dismissUpdate }}
           vibrate={vibrate} 
         />
-        <div className="glass-card rounded-[2rem] p-4 flex items-center justify-between gap-4">
-          <div className="pl-2">
+        <div className="glass-card rounded-[1.5rem] px-3 py-2 flex items-center justify-between gap-2">
+          <div className="min-w-0 pl-1">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{t('netTotal')}</p>
-            <p className="text-xl font-extrabold text-slate-900 dark:text-slate-100 tabular-nums tracking-tighter">
+            <p className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-slate-100 tabular-nums tracking-tighter wrap-break-word">
               ฿{breakdown.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {/* Toggle QR page button */}
             <button 
               onClick={() => {
@@ -1580,7 +1715,8 @@ export default function App() {
                 setCurrentView(currentView === 'main' ? 'qr' : 'main');
               }}
               title={currentView === 'main' ? t('qrMode') : t('backToCalculator')}
-              className={`h-14 w-14 rounded-[1.25rem] flex items-center justify-center transition-all shadow-md active:scale-95 cursor-pointer border ${
+              aria-label={currentView === 'main' ? t('qrMode') : t('backToCalculator')}
+              className={`size-12 rounded-[1.05rem] flex items-center justify-center transition-all shadow-md active:scale-95 cursor-pointer border ${
                 currentView === 'qr' 
                   ? 'bg-slate-900 dark:bg-slate-800 text-white border-slate-900 dark:border-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700' 
                   : 'bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900/50'
@@ -1592,7 +1728,7 @@ export default function App() {
             {/* Share / Copy Summary button */}
             <button 
               onClick={copySummary}
-              className="h-14 w-28 vibrant-gradient text-white rounded-[1.25rem] flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all overflow-hidden relative cursor-pointer"
+              className="h-12 w-24 sm:w-28 vibrant-gradient text-white rounded-[1.05rem] flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all overflow-hidden relative cursor-pointer"
             >
               <AnimatePresence initial={false} mode="wait">
                 {showCopied ? (
@@ -1621,6 +1757,7 @@ export default function App() {
               </AnimatePresence>
             </button>
           </div>
+        </div>
         </div>
       </footer>
 

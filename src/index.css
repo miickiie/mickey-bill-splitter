@@ -86,7 +86,8 @@
     /* Hover Overrides */
     .hover\:bg-rose-100:hover { @apply !bg-rose-900/40; }
     .hover\:bg-rose-50:hover { @apply !bg-rose-900/40; }
-    .hover\:bg-indigo-50:hover { @apply !bg-indigo-900/40; }
+    .hover\:bg-indigo-50:hover,
+    .hover\:bg-indigo-50\/50:hover { @apply !bg-indigo-900/40; }
     .hover\:bg-indigo-100:hover { @apply !bg-indigo-900/50; }
     .hover\:bg-white:hover { @apply !bg-slate-700/80; }
     
@@ -107,6 +108,19 @@
     inset 0 1px 0 rgba(255,255,255,0.05);
 }
 
+/* Keep bill panels independent of backdrop repainting in the scroll area. */
+.bill-panel {
+  @apply relative border border-white/60;
+  background-color: color-mix(in srgb, white 60%, var(--color-slate-50));
+  box-shadow: 0 10px 40px -10px rgb(0 0 0 / 0.06);
+}
+
+:root.dark .bill-panel {
+  @apply border-slate-700/80;
+  background-color: color-mix(in srgb, var(--color-slate-800) 60%, var(--color-slate-900));
+  box-shadow: 0 10px 40px -10px rgb(0 0 0 / 0.5);
+}
+
 .glass-dark {
   @apply bg-slate-900/95 backdrop-blur-3xl border border-white/10 saturate-[1.2] relative;
   box-shadow: 
@@ -118,7 +132,8 @@
   @apply bg-white/50 backdrop-blur-md border border-white/50 shadow-inner outline-none transition-all focus:bg-white/80 focus:border-indigo-300;
 }
 
-/* Keep member totals independent of neighboring hover animations. */
+/* Keep bill fields independent of neighboring hover animations. */
+.bill-panel .glass-input,
 .member-card,
 .member-card .glass-input,
 .member-card .backdrop-blur-md {
@@ -393,9 +408,7 @@
   padding-top: calc(env(safe-area-inset-top, 0px) + 1.25rem);
   padding-bottom: 1.25rem;
 }
-.main-safe-padding-bottom {
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 11rem);
-}
-.footer-safe-bottom {
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 2rem);
+.footer-safe-padding {
+  padding-top: 2.25rem;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
 }

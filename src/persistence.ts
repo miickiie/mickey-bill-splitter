@@ -1,11 +1,22 @@
 import type { BillSettings, Item, Person, Plates } from './types';
 
 export const BILL_STATE_STORAGE_KEY = 'bill-splitter-state-v2';
+const BILL_HISTORY_KEY_PREFIX = 'bill-splitter-history:';
 
 export interface StoredBillState {
   people: Person[];
   sharedItems: Item[];
   settings: BillSettings;
+}
+
+export interface BillDraft extends StoredBillState {
+  billId: string;
+}
+
+export interface SavedBill {
+  billId: string;
+  savedAt: number;
+  state: StoredBillState;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => (
@@ -117,37 +128,76 @@ const parseSettings = (value: unknown): BillSettings | null => {
   };
 };
 
-export function parseStoredBillState(rawState: string | null): StoredBillState | null {
-  if (!rawState) return null;
-
+const readJson = (raw: string | null): unknown => {
+  if (!raw) return null;
   try {
-    const value: unknown = JSON.parse(rawState);
-    if (
-      !isRecord(value)
-      || !Array.isArray(value.people)
-      || value.people.length === 0
-      || !Array.isArray(value.sharedItems)
-    ) {
-      return null;
-    }
-
-    const people = value.people.map(parsePerson);
-    const sharedItems = value.sharedItems.map(parseItem);
-    const settings = parseSettings(value.settings);
-    if (
-      people.some(person => person === null)
-      || sharedItems.some(item => item === null)
-      || settings === null
-    ) {
-      return null;
-    }
-
-    return {
-      people: people as Person[],
-      sharedItems: sharedItems as Item[],
-      settings,
-    };
+    return JSON.parse(raw);
   } catch {
     return null;
   }
+};
+
+const parseBillState = (value: unknown): StoredBillState | null => {
+  if (
+    !isRecord(value)
+    || !Array.isArray(value.people)
+    || value.people.length === 0
+    || !Array.isArray(value.sharedItems)
+  ) {
+    return null;
+  }
+
+  const people = value.people.map(parsePerson);
+  const sharedItems = value.sharedItems.map(parseItem);
+  const settings = parseSettings(value.settings);
+  if (
+    !people.every(person => person !== null)
+    || !sharedItems.every(item => item !== null)
+    || settings === null
+  ) {
+    return null;
+  }
+
+  return { people, sharedItems, settings };
+};
+
+export function parseStoredBillState(rawState: string | null): StoredBillState | null {
+  return parseBillState(readJson(rawState));
+}
+
+export function readBillDraft(storage: Storage): (StoredBillState & { billId?: string }) | null {
+  const value = readJson(storage.getItem(BILL_STATE_STORAGE_KEY));
+  if (!isRecord(value)) return null;
+
+  const state = parseBillState(value);
+  if (!state) return null;
+  return typeof value.billId === 'string' && value.billId
+    ? { ...state, billId: value.billId }
+    : state;
+}
+
+export function saveBillDraft(storage: Storage, draft: BillDraft): void {
+  storage.setItem(BILL_STATE_STORAGE_KEY, JSON.stringify(draft));
+}
+
+export function archiveBill(storage: Storage, draft: BillDraft): void {
+  const { billId, ...state } = draft;
+  storage.setItem(
+    BILL_HISTORY_KEY_PREFIX + billId,
+    JSON.stringify({ savedAt: Date.now(), state }),
+  );
+}
+
+export function readBillHistory(storage: Storage): SavedBill[] {
+  const keys = Array.from({ length: storage.length }, (_, index) => storage.key(index));
+  return keys.flatMap(key => {
+    if (!key?.startsWith(BILL_HISTORY_KEY_PREFIX)) return [];
+    const billId = key.slice(BILL_HISTORY_KEY_PREFIX.length);
+    const value = readJson(storage.getItem(key));
+    if (!billId || !isRecord(value) || typeof value.savedAt !== 'number') return [];
+    if (!Number.isFinite(new Date(value.savedAt).getTime())) return [];
+
+    const state = parseBillState(value.state);
+    return state ? [{ billId, savedAt: value.savedAt, state }] : [];
+  }).sort((first, second) => second.savedAt - first.savedAt);
 }

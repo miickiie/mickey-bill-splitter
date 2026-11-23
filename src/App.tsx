@@ -830,12 +830,12 @@ export default function App() {
 
   return (
     <div className="flex h-dvh w-full flex-col overflow-hidden bg-slate-50/50">
-      <header className="relative z-30 shrink-0 bg-white/50 backdrop-blur-3xl saturate-[1.3] border-b border-white/40 px-6 max-[360px]:px-2 header-safe-padding shadow-[0_4px_30px_rgba(0,0,0,0.03)]">
+      <header className="relative z-30 shrink-0 bg-white/50 backdrop-blur-3xl saturate-[1.3] border-b border-white/40 px-4 max-[360px]:px-2 sm:px-6 header-safe-padding shadow-[0_4px_30px_rgba(0,0,0,0.03)]">
         <div className="max-w-xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3 max-[360px]:gap-2">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               onClick={() => { vibrate(10); setThemeId((current) => nextTheme(current)); }}
-              className="w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center bg-gradient-to-br from-indigo-500 via-indigo-600 to-indigo-800 dark:from-indigo-700 dark:via-indigo-800 dark:to-indigo-950 shadow-xl shadow-indigo-200 hover:scale-105 active:scale-95 transition-all outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-4 focus-visible:ring-offset-slate-50 dark:focus-visible:ring-offset-slate-900 overflow-hidden"
+              className="size-11 shrink-0 rounded-2xl flex items-center justify-center bg-gradient-to-br from-indigo-500 via-indigo-600 to-indigo-800 dark:from-indigo-700 dark:via-indigo-800 dark:to-indigo-950 shadow-xl shadow-indigo-200 hover:scale-105 active:scale-95 transition-all outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-4 focus-visible:ring-offset-slate-50 dark:focus-visible:ring-offset-slate-900 overflow-hidden sm:size-12"
               aria-label={t('toggleTheme', { current: theme.name, next: followingTheme.name })}
               title={t('toggleTheme', { current: theme.name, next: followingTheme.name })}
             >
@@ -847,7 +847,7 @@ export default function App() {
               />
             </button>
             <div>
-              <p className="flex items-center gap-2 text-indigo-600 font-extrabold">
+              <p className="flex items-center gap-1.5 text-indigo-600 font-extrabold sm:gap-2">
                 <span className="text-2xl leading-none" aria-hidden="true">
                   {settings.isSushiroMode ? '🍣' : '🍛'}
                 </span>
@@ -857,7 +857,7 @@ export default function App() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 max-[360px]:gap-1">
+          <div className="flex items-center gap-1 sm:gap-2">
             <button
               onClick={() => { vibrate(10); i18n.changeLanguage(i18n.language === 'th' ? 'en' : 'th'); }}
               className="w-11 h-11 flex items-center justify-center shrink-0 rounded-xl border border-slate-200 bg-white/80 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors text-xs font-bold uppercase tracking-widest shadow-sm"
@@ -1699,7 +1699,7 @@ export default function App() {
           pwa={{ installOffer, requestInstall, dismissInstall, updateAvailable, updateInProgress, updateError, applyUpdate, dismissUpdate }}
           vibrate={vibrate} 
         />
-        <div className="glass-card rounded-[1.5rem] px-3 py-2 flex items-center justify-between gap-2">
+        <div className="glass-card rounded-[1.5rem] px-2.5 py-1.5 flex items-center justify-between gap-2 sm:px-3 sm:py-2">
           <div className="min-w-0 pl-1">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{t('netTotal')}</p>
             <p className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-slate-100 tabular-nums tracking-tighter wrap-break-word">
@@ -1707,7 +1707,7 @@ export default function App() {
             </p>
           </div>
           
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             {/* Toggle QR page button */}
             <button 
               onClick={() => {
@@ -1716,7 +1716,7 @@ export default function App() {
               }}
               title={currentView === 'main' ? t('qrMode') : t('backToCalculator')}
               aria-label={currentView === 'main' ? t('qrMode') : t('backToCalculator')}
-              className={`size-12 rounded-[1.05rem] flex items-center justify-center transition-all shadow-md active:scale-95 cursor-pointer border ${
+              className={`size-11 rounded-[1.05rem] flex items-center justify-center transition-all shadow-md active:scale-95 cursor-pointer border sm:size-12 ${
                 currentView === 'qr' 
                   ? 'bg-slate-900 dark:bg-slate-800 text-white border-slate-900 dark:border-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700' 
                   : 'bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900/50'
@@ -1728,7 +1728,7 @@ export default function App() {
             {/* Share / Copy Summary button */}
             <button 
               onClick={copySummary}
-              className="h-12 w-24 sm:w-28 vibrant-gradient text-white rounded-[1.05rem] flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all overflow-hidden relative cursor-pointer"
+              className="h-11 w-24 sm:h-12 sm:w-28 vibrant-gradient text-white rounded-[1.05rem] flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all overflow-hidden relative cursor-pointer"
             >
               <AnimatePresence initial={false} mode="wait">
                 {showCopied ? (

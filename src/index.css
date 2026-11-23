@@ -413,6 +413,20 @@
   padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.25rem);
 }
 
+/* Match the iOS status area to the header without edge blur compositing. */
+@supports (-webkit-touch-callout: none) {
+  .header-safe-padding {
+    background-color: var(--color-slate-50);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    filter: none;
+  }
+
+  :root.dark header.header-safe-padding {
+    background-color: var(--color-slate-900) !important;
+  }
+}
+
 @media (width >= 40rem) {
   .header-safe-padding {
     padding-top: calc(env(safe-area-inset-top, 0px) + 1.25rem);

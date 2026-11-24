@@ -42,8 +42,9 @@ export const SushiroPlateSelector: React.FC<SushiroPlateSelectorProps> = React.m
               }}
               className="w-full aspect-square rounded-2xl bg-white/50 backdrop-blur-md border border-white flex items-center justify-center text-xl hover:bg-white hover:border-indigo-200 hover:shadow-sm active:scale-95 transition-all relative overflow-hidden group shadow-[0_2px_8px_rgba(0,0,0,0.02)] cursor-pointer"
               aria-label={`Add ${p.label}฿ plate`}
+              data-sushiro-plate={p.color}
             >
-              {p.emoji}
+              <span className="sushiro-plate-emoji" aria-hidden="true">{p.emoji}</span>
               <div className="absolute top-0 right-0 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <Plus size={10} className="text-indigo-500" />
               </div>

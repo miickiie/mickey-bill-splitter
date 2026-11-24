@@ -959,8 +959,8 @@ export default function App() {
             </button>
           </div>
 
-          {saveFailed && <p role="alert" className="px-2 text-sm font-semibold text-rose-600">{t('billSaveFailed')}</p>}
-          {billHistoryError && <p role="alert" className="px-2 text-sm font-semibold text-rose-600">{t(billHistoryError)}</p>}
+          {saveFailed && <p role="alert" className="bill-alert px-2 text-sm font-semibold text-rose-600">{t('billSaveFailed')}</p>}
+          {billHistoryError && <p role="alert" className="bill-alert px-2 text-sm font-semibold text-rose-600">{t(billHistoryError)}</p>}
 
           <div id="bill-history" hidden={savedBills === null} className="space-y-2 border-t border-slate-200/60 pt-3">
             {savedBills?.length === 0 && (
@@ -1474,7 +1474,7 @@ export default function App() {
                     </span>
                   )}
                 </span>
-                <span className="text-emerald-400 font-bold">- ฿{(breakdown.totalIndividualDiscounts + breakdown.totalSharedDiscount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span className="discount-amount text-emerald-400 font-bold">- ฿{(breakdown.totalIndividualDiscounts + breakdown.totalSharedDiscount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             )}
 

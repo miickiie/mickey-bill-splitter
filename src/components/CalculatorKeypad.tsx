@@ -166,7 +166,7 @@ export function CalculatorKeypad({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: '100%', opacity: 0.8 }}
             transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-            className="w-full sm:max-w-md bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border-t sm:border border-white/80 dark:border-slate-800 rounded-t-[2.5rem] sm:rounded-[2.5rem] p-5 sm:p-6 shadow-2xl dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] text-slate-900 dark:text-slate-100 space-y-4 relative overflow-hidden transition-colors duration-200"
+            className="calculator-keypad w-full sm:max-w-md bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border-t sm:border border-white/80 dark:border-slate-800 rounded-t-[2.5rem] sm:rounded-[2.5rem] p-5 sm:p-6 shadow-2xl dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] text-slate-900 dark:text-slate-100 space-y-4 relative overflow-hidden transition-colors duration-200"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"

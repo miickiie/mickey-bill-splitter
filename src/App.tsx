@@ -1350,9 +1350,9 @@ export default function App() {
                     )}
                   </div>
 
-                  <div className="pt-6 border-t border-slate-50 flex flex-wrap items-end justify-between gap-4">
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2 ml-1">
+                  <div className="pt-6 border-t border-slate-50 space-y-2">
+                    <div className="flex items-end justify-between gap-2">
+                      <div className="flex min-w-0 flex-wrap items-center gap-2 ml-1">
                         <label htmlFor={`discount-${person.id}`} className="text-xs font-bold text-slate-500 uppercase tracking-widest leading-none">{t('individualDiscount')}</label>
                         <div className="flex bg-slate-200/50 p-0.5 rounded-lg shrink-0">
                           <button
@@ -1371,8 +1371,11 @@ export default function App() {
                           >%</button>
                         </div>
                       </div>
-                      <div className="relative w-32 group/disc">
-                        <input 
+                      <p className="max-w-1/2 shrink-0 text-right text-xs font-bold text-slate-600 uppercase tracking-widest">{t('yourTotal')}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="relative w-32 max-w-[42%] group/disc">
+                        <input
                           id={`discount-${person.id}`}
                           type="text"
                           readOnly
@@ -1406,12 +1409,11 @@ export default function App() {
                           {person.individualDiscountType === 'percentage' ? '%' : '฿'}
                         </span>
                       </div>
-                    </div>
-                    <div className="ml-auto text-right">
-                      <p className="text-xs font-bold text-slate-600 uppercase tracking-widest mb-1">{t('yourTotal')}</p>
-                      <p className="text-3xl font-extrabold text-indigo-700 tabular-nums tracking-tighter">
-                        ฿{(peopleTotalsById.get(person.id)?.finalShare ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </p>
+                      <div className="@container min-w-0 flex-1 text-right">
+                        <p className="text-[length:clamp(1rem,15cqi,1.875rem)] leading-9 font-extrabold text-indigo-700 tabular-nums tracking-tighter wrap-anywhere">
+                          ฿{(peopleTotalsById.get(person.id)?.finalShare ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -51,7 +51,6 @@
 :root.dark {
     /* Main Layout */
     .bg-slate-50\/50, .min-h-screen { @apply !bg-slate-900/50; }
-    header.bg-white\/50 { @apply !bg-slate-800/50 !border-slate-700/80; }
     
     /* Text Customizations */
     .text-slate-900 { @apply !text-slate-100; }
@@ -363,8 +362,7 @@
 }
 
 :root[data-theme] .glass-card,
-:root[data-theme] .glass-dark,
-:root[data-theme] header {
+:root[data-theme] .glass-dark {
   filter: none;
 }
 
@@ -411,20 +409,6 @@
 .footer-safe-padding {
   padding-top: 1.75rem;
   padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.25rem);
-}
-
-/* Match the iOS status area to the header without edge blur compositing. */
-@supports (-webkit-touch-callout: none) {
-  .header-safe-padding {
-    background-color: var(--color-slate-50);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-    filter: none;
-  }
-
-  :root.dark header.header-safe-padding {
-    background-color: var(--color-slate-900) !important;
-  }
 }
 
 @media (width >= 40rem) {

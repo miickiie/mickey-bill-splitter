@@ -179,6 +179,7 @@ export default function App() {
   const [billHistoryError, setBillHistoryError] = useState<'billHistoryUnavailable' | 'billSwitchFailed' | null>(null);
   const billHistoryButtonRef = useRef<HTMLButtonElement>(null);
   const scrollRef = useRef<HTMLElement>(null);
+  const footerRef = useRef<HTMLElement>(null);
   const historyDateFormatter = useMemo(
     () => new Intl.DateTimeFormat(i18n.resolvedLanguage, { dateStyle: 'medium', timeStyle: 'short' }),
     [i18n.resolvedLanguage],
@@ -209,6 +210,21 @@ export default function App() {
 
   const [currentView, setCurrentView] = useState<'main' | 'qr'>('main');
   useLayoutEffect(() => { scrollRef.current?.scrollTo(0, 0); }, [currentView]);
+
+  useLayoutEffect(() => {
+    const scroller = scrollRef.current;
+    const footer = footerRef.current;
+    if (!scroller || !footer) return;
+
+    const updateFooterClearance = () => {
+      scroller.style.setProperty('--footer-height', `${footer.getBoundingClientRect().height}px`);
+    };
+    updateFooterClearance();
+
+    const observer = new ResizeObserver(updateFooterClearance);
+    observer.observe(footer, { box: 'border-box' });
+    return () => observer.disconnect();
+  }, []);
   const [promptPayId, setPromptPayId] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('bill-splitter-promptpay-id') || '';
@@ -829,8 +845,8 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-dvh w-full flex-col overflow-hidden bg-slate-50/50">
-      <header className="relative z-30 shrink-0 bg-white/50 backdrop-blur-3xl saturate-[1.3] border-b border-white/40 px-4 max-[360px]:px-2 sm:px-6 header-safe-padding shadow-[0_4px_30px_rgba(0,0,0,0.03)]">
+    <div className="relative flex h-dvh w-full flex-col overflow-hidden bg-slate-50/50">
+      <header className="relative z-30 shrink-0 bg-slate-50 dark:bg-slate-900 border-b border-slate-200/70 dark:border-slate-700/80 px-4 max-[360px]:px-2 sm:px-6 header-safe-padding">
         <div className="max-w-xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-3">
             <button
@@ -883,7 +899,7 @@ export default function App() {
         </div>
       </header>
 
-      <main ref={scrollRef} tabIndex={0} className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain">
+      <main ref={scrollRef} tabIndex={0} className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain pb-(--footer-height) scroll-pb-(--footer-height)">
         <div className="max-w-xl mx-auto p-4 space-y-6">
         {currentView === 'main' ? (
           <>
@@ -1682,7 +1698,7 @@ export default function App() {
         </div>
       </main>
 
-      <footer className="relative z-40 shrink-0 footer-safe-padding px-4">
+      <footer ref={footerRef} className="pointer-events-none absolute inset-x-0 bottom-0 z-40 footer-safe-padding px-4">
         <div className="relative mx-auto w-full max-w-sm">
         <MascotPeeker 
           variant={mascotVariant} 
@@ -1699,7 +1715,7 @@ export default function App() {
           pwa={{ installOffer, requestInstall, dismissInstall, updateAvailable, updateInProgress, updateError, applyUpdate, dismissUpdate }}
           vibrate={vibrate} 
         />
-        <div className="glass-card rounded-[1.5rem] px-2.5 py-1.5 flex items-center justify-between gap-2 sm:px-3 sm:py-2">
+        <div className="bill-panel pointer-events-auto rounded-[1.5rem] px-2.5 py-1.5 flex items-center justify-between gap-2 sm:px-3 sm:py-2">
           <div className="min-w-0 pl-1">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{t('netTotal')}</p>
             <p className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-slate-100 tabular-nums tracking-tighter wrap-break-word">
